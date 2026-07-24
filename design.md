@@ -7,6 +7,7 @@ This document details the architecture, design choices, and custom interactive f
 ## 1. Project Architecture
 
 AttendEase is built as a single-page application (SPA) optimized for deployment as an Android/iOS wrapper using Capacitor.
+vercel deployment
 
 ```
 public/

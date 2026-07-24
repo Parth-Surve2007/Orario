@@ -127,17 +127,17 @@ export default function Dashboard({ onNavigate }) {
     const todayPresent = lectures.filter(l => dayAttendance[getLectureKey(l)] === 'present').length;
     const todayAbsent = lectures.filter(l => dayAttendance[getLectureKey(l)] === 'absent').length;
 
-    const statCardClass = "voxel-card p-5 sm:p-6 min-h-[184px] sm:min-h-[208px] h-full flex flex-col relative";
-    const statIconClass = "w-10 h-10 bg-surface-container border-2 border-outline flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0";
-    const statBodyClass = "mt-auto flex flex-col gap-2 items-start";
+    const statCardClass = "voxel-card p-6 min-h-[224px] sm:min-h-[240px] h-full flex flex-col relative";
+    const statIconClass = "w-12 h-12 bg-surface-container border-2 border-outline flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0";
+    const statBodyClass = "mt-auto flex flex-col gap-3 items-start pt-8";
     const statValueClass = "text-display-lg font-bold leading-none tabular-nums";
-    const statTitleClass = "text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold leading-4";
+    const statTitleClass = "text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold leading-5";
 
     return (
         <div className="flex flex-col gap-4 w-full">
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 items-stretch gap-gutter">
+            <div className="grid grid-cols-2 items-stretch gap-5 px-1 sm:gap-6 sm:px-0">
                 <article className={statCardClass}>
                     <div className={statIconClass}>
                         <Donut className="text-primary" size={20} />

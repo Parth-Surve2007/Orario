@@ -1,17 +1,25 @@
+# =========================
 # Dependencies
+# =========================
 node_modules/
 
+# =========================
 # Build outputs
+# =========================
 dist/
 dev-dist/
 build/
 
+# =========================
 # Environment variables
+# =========================
 .env
 .env.*
 !.env.example
 
+# =========================
 # Logs
+# =========================
 logs/
 *.log
 npm-debug.log*
@@ -19,30 +27,61 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# =========================
 # OS files
+# =========================
 .DS_Store
 Thumbs.db
 Desktop.ini
 
+# =========================
 # Editor / IDE
+# =========================
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
 
-# Vite / tooling cache
-*.local
+# =========================
+# Vite / Tool caches
+# =========================
 .cache/
-.eslintcache
 .parcel-cache/
+.eslintcache
+*.local
 
+# =========================
 # Test coverage
+# =========================
 coverage/
 
-# Capacitor
-.capacitor/
-
+# =========================
 # Temporary files
+# =========================
 tmp/
 temp/
+
+# =========================
+# Android / Gradle
+# =========================
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/captures/
+
+# =========================
+# Capacitor
+# =========================
+.capacitor/
+
+# =========================
+# Firebase (if added later)
+# =========================
+.firebase/
+
+# =========================
+# Misc
+# =========================
+*.tsbuildinfo

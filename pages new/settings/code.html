@@ -1,0 +1,255 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>AttendEase - Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary-fixed": "#dbe4ea",
+                        "surface-container-low": "#eff4ff",
+                        "surface-container": "#e5eeff",
+                        "surface": "#f8f9ff",
+                        "primary-fixed-dim": "#b7c9d5",
+                        "primary-fixed": "#d3e5f1",
+                        "inverse-on-surface": "#eaf1ff",
+                        "tertiary-fixed-dim": "#bfc8ce",
+                        "on-secondary-fixed": "#001e2b",
+                        "on-tertiary-fixed-variant": "#3f484d",
+                        "secondary-fixed-dim": "#7bd1fa",
+                        "on-primary-fixed-variant": "#384953",
+                        "on-secondary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-container-highest": "#d3e4fe",
+                        "on-primary-fixed": "#0c1e26",
+                        "primary-container": "#e0f2fe",
+                        "surface-tint": "#50616b",
+                        "on-primary": "#ffffff",
+                        "primary": "#50616b",
+                        "on-error": "#ffffff",
+                        "on-surface": "#0b1c30",
+                        "inverse-primary": "#b7c9d5",
+                        "secondary-container": "#7ed4fd",
+                        "tertiary-container": "#e8f1f7",
+                        "surface-container-high": "#dce9ff",
+                        "on-tertiary": "#ffffff",
+                        "secondary": "#006686",
+                        "outline": "#73787b",
+                        "secondary-fixed": "#c0e8ff",
+                        "on-primary-container": "#5e6f79",
+                        "error-container": "#ffdad6",
+                        "on-error-container": "#93000a",
+                        "background": "#f8f9ff",
+                        "on-background": "#0b1c30",
+                        "on-secondary-fixed-variant": "#004d66",
+                        "inverse-surface": "#213145",
+                        "on-tertiary-fixed": "#141d21",
+                        "surface-bright": "#f8f9ff",
+                        "tertiary": "#576065",
+                        "outline-variant": "#c3c7cb",
+                        "surface-variant": "#d3e4fe",
+                        "surface-dim": "#cbdbf5",
+                        "on-surface-variant": "#43474b",
+                        "on-secondary-container": "#005b78",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#656e73"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "container-padding": "24px",
+                        "unit": "8px",
+                        "gutter": "16px",
+                        "glass-padding": "20px"
+                    },
+                    fontFamily: {
+                        "label-sm": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "body-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    },
+                    fontSize: {
+                        "label-sm": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "500" }],
+                        "headline-lg-mobile": ["24px", { lineHeight: "32px", fontWeight: "400" }],
+                        "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "display-lg": ["48px", { lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "300" }],
+                        "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "400" }]
+                    }
+                }
+            }
+        };
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            background-image: radial-gradient(circle at 50% 0%, rgba(186,230,253,0.15) 0%, transparent 70%);
+            background-attachment: fixed;
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-top-color: rgba(255, 255, 255, 0.6);
+            border-left-color: rgba(255, 255, 255, 0.6);
+            box-shadow: 0 8px 32px 0 rgba(186,230,253,0.2);
+        }
+
+        .glass-input {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .glass-input:focus {
+            background: rgba(255, 255, 255, 0.4);
+            border-color: theme('colors.primary');
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(80, 97, 107, 0.1);
+        }
+
+        .glass-button-primary {
+            background: linear-gradient(135deg, rgba(80, 97, 107, 0.9), rgba(80, 97, 107, 1));
+            color: white;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 4px 12px rgba(80, 97, 107, 0.2);
+            transition: all 0.2s ease;
+        }
+        
+        .glass-button-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 6px 16px rgba(80, 97, 107, 0.3);
+        }
+    </style>
+</head>
+<body class="text-on-background min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/10 dark:bg-black/10 backdrop-blur-lg border-b border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(186,230,253,0.2)]">
+<div class="flex justify-between items-center px-container-padding py-4 w-full max-w-7xl mx-auto">
+<button class="text-primary dark:text-primary-fixed-dim hover:bg-white/20 transition-all duration-300 p-2 rounded-full active:scale-95">
+<span class="material-symbols-outlined">calendar_today</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-light tracking-tight text-primary dark:text-primary-fixed-dim">
+                AttendEase
+            </h1>
+<button class="text-primary dark:text-primary-fixed-dim hover:bg-white/20 transition-all duration-300 p-2 rounded-full active:scale-95">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-24 px-container-padding max-w-7xl mx-auto flex flex-col md:flex-row gap-gutter">
+<!-- Left Column: Settings Content -->
+<div class="flex-1 flex flex-col gap-gutter">
+<!-- Setup Section -->
+<section class="glass-panel rounded-xl p-glass-padding flex flex-col gap-6">
+<header>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-2">Setup</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Configure your semester dates to initialize your attendance tracking.</p>
+</header>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Start Date</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">event</span>
+<input class="glass-input w-full rounded-lg py-2 pl-10 pr-3 font-body-md text-body-md text-on-surface" placeholder="Select start date" type="date">
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">End Date</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">event</span>
+<input class="glass-input w-full rounded-lg py-2 pl-10 pr-3 font-body-md text-body-md text-on-surface" placeholder="Select end date" type="date">
+</div>
+</div>
+</div>
+<div class="flex justify-end mt-2">
+<button class="glass-button-primary rounded-full px-6 py-2.5 font-label-sm text-label-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">save</span>
+                        Save Settings
+                    </button>
+</div>
+</section>
+<!-- Upload Timetable Section -->
+<section class="glass-panel rounded-xl p-glass-padding flex flex-col gap-6 mt-4">
+<header>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-2">Upload Timetable</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Import your class schedule to begin tracking attendance.</p>
+</header>
+<div class="flex flex-col gap-4">
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Class Name</label>
+<input class="glass-input w-full rounded-lg px-4 py-2.5 font-body-md text-body-md text-on-surface" placeholder="e.g., Introduction to Computer Science" type="text">
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Batch</label>
+<select class="glass-input w-full rounded-lg px-4 py-2.5 font-body-md text-body-md text-on-surface appearance-none bg-transparent">
+<option value="">Select Batch</option>
+<option value="2024">Class of 2024</option>
+<option value="2025">Class of 2025</option>
+<option value="2026">Class of 2026</option>
+</select>
+</div>
+<div class="flex flex-col gap-2 mt-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Timetable File</label>
+<div class="glass-input border-dashed border-2 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-white/30 transition-colors">
+<span class="material-symbols-outlined text-4xl text-outline mb-2" style="font-variation-settings: 'FILL' 0;">upload_file</span>
+<p class="font-body-md text-body-md text-on-surface text-center">Drag and drop your Excel file here</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant text-center mt-1">or click to browse (.xlsx, .csv)</p>
+<input accept=".xlsx, .csv" class="hidden" type="file">
+</div>
+</div>
+</div>
+<div class="flex justify-end mt-2">
+<button class="glass-button-primary rounded-full px-6 py-2.5 font-label-sm text-label-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">cloud_upload</span>
+                        Upload Timetable
+                    </button>
+</div>
+</section>
+</div>
+<!-- Right Column: Reference Image Display -->
+<div class="flex-1 hidden md:flex items-start">
+<div class="glass-panel rounded-xl p-glass-padding w-full sticky top-28 overflow-hidden">
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-4 border-b border-white/20 pb-2">Reference Layout</p>
+<img alt="Reference for AttendEase Settings Screen layout showing Setup and Upload sections" class="w-full h-auto rounded-lg object-contain shadow-sm opacity-80 mix-blend-multiply" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDhOlYkCzwRXYZfcVoLEPYt-8UBRGcjWDxIz9yEsGI-wzgivV1LeDMAe4aQq0SlcWRfLgnHe3uLWk2W2C_bmooa6nzD8RXRBt4uWsb-q63Kk4yPxrylQL1-Cltt1-vVoBFftuIPLo6EF93XzwWWzjCcfkIntvRDShgYyI_HkKIcszYqZ1WUK_oEV7_hGJlnP3KejENUA-QONTjvGy5SY283QFSFo39v7p357rU7_c6hSuOdpS3W8eNMio7nb8W4-ohXNbyykIpMozot">
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] rounded-full z-50 bg-zinc-900/80 backdrop-blur-xl border border-white/10 shadow-xl">
+<div class="flex justify-around items-center p-2 w-full">
+<a class="flex flex-col items-center justify-center text-white/70 px-4 py-2 hover:bg-white/10 transition-all rounded-full" href="#">
+<span class="material-symbols-outlined mb-1">dashboard</span>
+<span class="font-label-sm text-label-sm">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white/70 px-4 py-2 hover:bg-white/10 transition-all rounded-full" href="#">
+<span class="material-symbols-outlined mb-1">event_note</span>
+<span class="font-label-sm text-label-sm">Timetable</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white/70 px-4 py-2 hover:bg-white/10 transition-all rounded-full" href="#">
+<span class="material-symbols-outlined mb-1">analytics</span>
+<span class="font-label-sm text-label-sm">Stats</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-white/20 text-white rounded-full px-6 py-2 shadow-inner active:scale-90 transition-all duration-200 px-4" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span class="font-label-sm text-label-sm">Settings</span>
+</a>
+</div>
+</nav>
+
+
+
+
+</body></html>

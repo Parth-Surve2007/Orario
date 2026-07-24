@@ -116,12 +116,12 @@ export default function App() {
       <ParticleBackground />
 
       {/* Header */}
-      <header className="flex items-center justify-center px-glass-padding py-4 sticky top-0 z-40 pointer-events-none">
+      <header className="safe-top-header flex items-center justify-center px-glass-padding sticky top-0 z-40 pointer-events-none">
         <h1 className="text-3xl sm:text-4xl text-on-surface dark:text-white font-header tracking-wider uppercase select-none">Orario</h1>
       </header>
 
       {/* Main Content Area */}
-      <main className="relative z-10 flex-grow pt-[40px] pb-[120px] px-gutter md:px-container-padding max-w-7xl mx-auto w-full overflow-hidden">
+      <main className="screen-bottom-space relative z-10 flex-grow pt-[40px] px-gutter md:px-container-padding max-w-7xl mx-auto w-full overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentView}
@@ -143,7 +143,7 @@ export default function App() {
       <InstallPrompt />
 
       {/* Bottom Nav */}
-      <nav className="glass-nav fixed bottom-0 left-0 w-full md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:w-[90%] md:max-w-md z-50 h-[76px] pb-safe">
+      <nav className="edge-bottom-nav glass-nav fixed bottom-0 left-0 w-full md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:w-[90%] md:max-w-md z-50">
         <div className="flex justify-around items-center w-full px-2 relative h-full">
           {navItems.map(item => {
             const Icon = item.icon;

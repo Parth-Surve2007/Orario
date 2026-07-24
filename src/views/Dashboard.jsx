@@ -127,28 +127,34 @@ export default function Dashboard({ onNavigate }) {
     const todayPresent = lectures.filter(l => dayAttendance[getLectureKey(l)] === 'present').length;
     const todayAbsent = lectures.filter(l => dayAttendance[getLectureKey(l)] === 'absent').length;
 
+    const statCardClass = "voxel-card p-5 sm:p-6 min-h-[184px] sm:min-h-[208px] h-full flex flex-col relative";
+    const statIconClass = "w-10 h-10 bg-surface-container border-2 border-outline flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0";
+    const statBodyClass = "mt-auto flex flex-col gap-2 items-start";
+    const statValueClass = "text-display-lg font-bold leading-none tabular-nums";
+    const statTitleClass = "text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold leading-4";
+
     return (
         <div className="flex flex-col gap-4 w-full">
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 gap-gutter">
-                <article className="voxel-card p-5 flex flex-col justify-between aspect-square relative">
-                    <div className="w-10 h-10 bg-surface-container border-2 border-outline flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)]">
+            <div className="grid grid-cols-2 items-stretch gap-gutter">
+                <article className={statCardClass}>
+                    <div className={statIconClass}>
                         <Donut className="text-primary" size={20} />
                     </div>
-                    <div className="mt-auto">
-                        <div className="text-display-lg font-bold mb-1" style={{ color: pctColor }}>{pct}%</div>
-                        <div className="text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Overall Attendance</div>
+                    <div className={statBodyClass}>
+                        <div className={statValueClass} style={{ color: pctColor }}>{pct}%</div>
+                        <div className={statTitleClass}>Overall Attendance</div>
                     </div>
                 </article>
 
-                <article className="voxel-card p-5 flex flex-col justify-between aspect-square relative">
-                    <div className="w-10 h-10 bg-surface-container border-2 border-outline flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)]">
+                <article className={statCardClass}>
+                    <div className={statIconClass}>
                         <School className="text-secondary" size={20} />
                     </div>
-                    <div className="mt-auto">
-                        <div className="text-display-lg text-on-surface font-bold mb-1">{lectures.length}</div>
-                        <div className="text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Lectures Today</div>
+                    <div className={statBodyClass}>
+                        <div className={`${statValueClass} text-on-surface`}>{lectures.length}</div>
+                        <div className={statTitleClass}>Lectures Today</div>
                     </div>
                 </article>
             </div>

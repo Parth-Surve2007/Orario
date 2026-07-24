@@ -247,14 +247,46 @@ export const THEMES = {
 };
 
 export const DEFAULT_THEME = 'yellow-brutal';
+export const DEFAULT_LIGHT_THEME_COLOR = '#FFEB3B';
+export const DEFAULT_DARK_THEME_COLOR = '#141414';
+
+export function getThemeStatusBarColor(themeKey, isDark = false) {
+  const theme = THEMES[themeKey] || THEMES[DEFAULT_THEME];
+  const modeVars = isDark ? theme.vars.dark : theme.vars.light;
+
+  return modeVars['--color-background'] || (isDark ? DEFAULT_DARK_THEME_COLOR : DEFAULT_LIGHT_THEME_COLOR);
+}
+
+function syncThemeColorMeta(color, isDark) {
+  const metas = Array.from(document.querySelectorAll('meta[name="theme-color"]'));
+  const targets = metas.length ? metas : [document.createElement('meta')];
+
+  targets.forEach((meta) => {
+    meta.setAttribute('name', 'theme-color');
+    meta.setAttribute('content', color);
+
+    if (!meta.parentNode) {
+      document.head.appendChild(meta);
+    }
+  });
+
+  const colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
+  if (colorSchemeMeta) {
+    colorSchemeMeta.setAttribute('content', isDark ? 'dark light' : 'light dark');
+  }
+}
 
 export function applyTheme(themeKey, isDark = false) {
   const theme = THEMES[themeKey] || THEMES[DEFAULT_THEME];
   const root = document.documentElement;
-  // Restore dynamic dark mode handling
   const modeVars = isDark ? theme.vars.dark : theme.vars.light;
+  const themeColor = getThemeStatusBarColor(themeKey, isDark);
   
   Object.entries(modeVars).forEach(([key, value]) => {
     root.style.setProperty(key, value);
   });
+
+  root.style.setProperty('--app-theme-color', themeColor);
+  root.style.colorScheme = isDark ? 'dark' : 'light';
+  syncThemeColorMeta(themeColor, isDark);
 }

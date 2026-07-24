@@ -156,12 +156,12 @@ export default function Stats({ onNavigate }) {
       : 'var(--color-error)';
 
   return (
-    <div className="flex flex-col w-9/10 mx-auto gap-6">
-      <h2 className="text-headline-lg-mobile w-9/10 mx-auto text-on-surface font-header">Statistics Overview</h2>
+    <div className="flex flex-col w-full mx-auto gap-6">
+      <h2 className="text-headline-lg-mobile w-[92%] max-w-full mx-auto text-on-surface font-header">Statistics Overview</h2>
 
       {/* Top stat cards */}
-      <section className="grid grid-cols-2 gap-gutter">
-        <article className="voxel-card p-5 flex flex-col w-9/10 mx-auto justify-between aspect-square relative">
+      <section className="grid grid-cols-2 gap-5 w-[92%] max-w-full mx-auto sm:gap-6">
+        <article className="voxel-card p-5 flex flex-col w-full justify-between aspect-square relative">
           <div className="w-10 h-10 bg-surface-container border-2 border-outline flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)]">
             <Calendar className="text-primary" size={20} />
           </div>
@@ -171,7 +171,7 @@ export default function Stats({ onNavigate }) {
           </div>
         </article>
 
-        <article className="voxel-card p-5 flex flex-col w-9/10 mx-auto justify-between aspect-square relative">
+        <article className="voxel-card p-5 flex flex-col w-full justify-between aspect-square relative">
           <div className="w-10 h-10 bg-surface-container border-2 border-outline flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)]">
             <Donut className="text-secondary" size={20} />
           </div>
@@ -185,7 +185,7 @@ export default function Stats({ onNavigate }) {
       {/* Subject-wise */}
       <section>
         <div className="flex items-center justify-between mb-4 pl-1">
-          <h3 className="text-body-md w-9/10 mx-auto font-bold text-on-surface gap-6">Subject-wise Attendance</h3>
+          <h3 className="text-body-md w-[92%] max-w-full mx-auto font-bold text-on-surface gap-6">Subject-wise Attendance</h3>
           {!hasAlloc && subjects.length > 0 && (
             <span className="text-label-sm text-on-surface-variant font-bold border border-outline px-2 py-0.5">
               No teacher data
@@ -194,7 +194,7 @@ export default function Stats({ onNavigate }) {
         </div>
 
         {subjects.length === 0 ? (
-          <div className="voxel-card p-8 text-center flex flex-col w-9/10 mx-auto items-center justify-center min-h-[280px]">
+          <div className="voxel-card p-8 text-center flex flex-col w-[92%] max-w-full mx-auto items-center justify-center min-h-[280px]">
             <div className="w-16 h-16 bg-surface-container border-2 border-outline flex items-center justify-center mb-6 shadow-[2px_2px_0px_var(--color-outline)]">
               <FileQuestion className="text-on-surface-variant" size={32} />
             </div>
@@ -216,7 +216,7 @@ export default function Stats({ onNavigate }) {
             </button>
           </div>
         ) : (
-          <div className="voxel-card w-9/10 mx-auto p-6 flex flex-col gap-5">
+          <div className="voxel-card w-[92%] max-w-full mx-auto p-6 flex flex-col gap-5">
             {subjects
               .sort(([, a], [, b]) => (a.present / (a.total || 1)) - (b.present / (b.total || 1)))
               .map(([name, data], i) => {

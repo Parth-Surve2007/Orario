@@ -34,7 +34,7 @@ export default function App() {
     smartAttendance: {
       enabled: false,
       collegeLocation: { lat: null, lng: null },
-      radius: 100,
+      radius: 200,
       lastChecks: {}
     }
   });
@@ -116,12 +116,12 @@ export default function App() {
       <ParticleBackground />
 
       {/* Header */}
-      <header className="safe-top-header flex items-center justify-center px-glass-padding sticky top-0 z-40 pointer-events-none">
+      <header className="safe-top-header relative z-20 flex items-center justify-center px-glass-padding pointer-events-none">
         <h1 className="text-3xl sm:text-4xl text-on-surface dark:text-white font-header tracking-wider uppercase select-none">Orario</h1>
       </header>
 
       {/* Main Content Area */}
-      <main className="screen-bottom-space relative z-10 flex-grow pt-[40px] px-gutter md:px-container-padding max-w-7xl mx-auto w-full overflow-hidden">
+      <main className="screen-bottom-space relative z-10 flex-grow pt-4 px-gutter md:px-container-padding max-w-7xl mx-auto w-full overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentView}

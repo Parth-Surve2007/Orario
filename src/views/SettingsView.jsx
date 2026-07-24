@@ -1,5 +1,6 @@
-import React, { useContext, useRef } from 'react';
+import React, { useContext, useRef, useState } from 'react';
 import { AppContext } from '../App';
+import LocationPicker from '../components/LocationPicker';
 import { processExcelFile } from '../utils/excelParser';
 import { THEMES } from '../utils/themes';
 import {
@@ -11,11 +12,17 @@ import {
 } from '../utils/db';
 import { Moon, Sun, Bell, BellOff, Calendar, Save, Upload, Trash2, Plus, X, Check, MapPin, Locate, Download, FileUp } from 'lucide-react';
 
+const VESIT_LOCATION = { lat: 19.045701, lng: 72.889137 };
+const DEFAULT_SMART_RADIUS = 200;
+
 export default function SettingsView() {
   const { state, updateState, theme, setTheme, colorTheme, setColorTheme } = useContext(AppContext);
   const fileInputRef = useRef(null);
   const holidayInputRef = useRef(null);
   const backupInputRef = useRef(null);
+  const [showLocationSetup, setShowLocationSetup] = useState(false);
+  const [showManualLocation, setShowManualLocation] = useState(false);
+  const selectedColorTheme = THEMES[colorTheme] || Object.values(THEMES)[0];
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -111,21 +118,34 @@ export default function SettingsView() {
     ? Object.entries(state.subjectMappings[state.selectedClass])
     : [];
 
-  const handleSetCollegeLocation = async () => {
-    try {
-      const { getCurrentLocation } = await import('../utils/geofence');
-      const loc = await getCurrentLocation();
-      if (loc) {
-        updateState({
-          smartAttendance: { ...state.smartAttendance, collegeLocation: loc }
-        });
-        alert('Location saved successfully!');
-      } else {
-        alert('Could not get location. Ensure permissions are granted.');
+  const closeLocationSetup = () => {
+    setShowLocationSetup(false);
+    setShowManualLocation(false);
+  };
+
+  const saveCollegeLocation = (location) => {
+    updateState({
+      smartAttendance: {
+        ...state.smartAttendance,
+        enabled: true,
+        collegeLocation: location,
+        radius: state.smartAttendance?.radius || DEFAULT_SMART_RADIUS,
       }
-    } catch (e) {
-      alert('Error fetching location.');
+    });
+    closeLocationSetup();
+  };
+
+  const handleSetVesitLocation = () => {
+    saveCollegeLocation(VESIT_LOCATION);
+  };
+
+  const handleSmartAttendanceToggle = () => {
+    if (state.smartAttendance?.enabled) {
+      updateState({ smartAttendance: { ...state.smartAttendance, enabled: false } });
+      return;
     }
+
+    setShowLocationSetup(true);
   };
 
   return (
@@ -166,41 +186,33 @@ export default function SettingsView() {
         <div className="pt-2">
           <span className="text-body-md text-on-surface font-bold block mb-1">Colour Theme</span>
           <span className="text-label-sm text-on-surface-variant block mb-4">Select voxel dimension theme</span>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {Object.entries(THEMES).map(([key, t]) => {
-              const isActive = colorTheme === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setColorTheme(key)}
-                  className={`relative flex items-center gap-3 p-3 border-2 transition-all text-left ${isActive
-                    ? 'border-primary bg-primary-container/20 shadow-[3px_3px_0px_var(--color-primary)]'
-                    : 'border-outline bg-surface-container-lowest shadow-[3px_3px_0px_var(--color-outline)] hover:border-primary/50'
-                    }`}
-                >
-                  {/* Swatch squares (Voxel styled) */}
-                  <div className="flex shrink-0 border border-outline">
-                    {t.preview.map((col, i) => (
-                      <span
-                        key={i}
-                        className="w-5 h-5 border-r last:border-r-0 border-outline shadow-sm"
-                        style={{ backgroundColor: col }}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-label-sm font-bold text-on-surface block truncate">{t.label}</span>
-                    <span className="text-[10px] text-on-surface-variant truncate block">{t.description}</span>
-                  </div>
-                  {isActive && (
-                    <span className="absolute top-2 right-2 w-5 h-5 bg-primary border-2 border-outline flex items-center justify-center shadow-[1px_1px_0px_var(--color-outline)]">
-                      <Check size={12} className="text-on-primary" />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="border-2 border-outline bg-surface-container-lowest shadow-[3px_3px_0px_var(--color-outline)] p-3 flex items-center gap-3">
+            <div className="flex shrink-0 border border-outline">
+              {selectedColorTheme.preview.map((col, i) => (
+                <span
+                  key={i}
+                  className="w-5 h-5 border-r last:border-r-0 border-outline shadow-sm"
+                  style={{ backgroundColor: col }}
+                />
+              ))}
+            </div>
+            <select
+              value={colorTheme}
+              onChange={(event) => setColorTheme(event.target.value)}
+              className="neo-input flex-1 min-w-0 bg-transparent border-0 shadow-none p-0 text-label-sm font-bold text-on-surface uppercase tracking-wider focus:ring-0"
+              aria-label="Colour theme"
+            >
+              {Object.entries(THEMES).map(([key, t]) => (
+                <option key={key} value={key}>{t.label}</option>
+              ))}
+            </select>
+            <span className="w-5 h-5 bg-primary border-2 border-outline flex items-center justify-center shadow-[1px_1px_0px_var(--color-outline)] shrink-0">
+              <Check size={12} className="text-on-primary" />
+            </span>
           </div>
+          <p className="text-[10px] text-on-surface-variant mt-2 pl-1">
+            {selectedColorTheme.description}
+          </p>
         </div>
       </section>
 
@@ -220,7 +232,7 @@ export default function SettingsView() {
           </div>
           <button
             className={`voxel-btn-secondary text-label-sm flex items-center gap-2 font-bold ${state.smartAttendance?.enabled ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container text-on-surface'}`}
-            onClick={() => updateState({ smartAttendance: { ...state.smartAttendance, enabled: !state.smartAttendance?.enabled } })}
+            onClick={handleSmartAttendanceToggle}
           >
             {state.smartAttendance?.enabled ? 'Enabled' : 'Disabled'}
           </button>
@@ -230,18 +242,19 @@ export default function SettingsView() {
           <div className="flex flex-col gap-4 p-4 border-2 border-outline bg-surface-container-lowest shadow-[3px_3px_0px_var(--color-outline)]">
             <div className="flex flex-col gap-2">
               <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">College Location</label>
-              <div className="flex flex-col gap-2">
-                <button className="voxel-btn-secondary flex items-center justify-center gap-2" onClick={handleSetCollegeLocation}>
-                  <Locate size={18} /> Use Current Location
-                </button>
-                {state.smartAttendance?.collegeLocation?.lat ? (
-                  <span className="text-xs text-primary font-mono text-center">
-                    Saved: {state.smartAttendance.collegeLocation.lat.toFixed(5)}, {state.smartAttendance.collegeLocation.lng.toFixed(5)}
-                  </span>
-                ) : (
-                  <span className="text-xs text-error font-mono text-center">Not set</span>
-                )}
-              </div>
+              {state.smartAttendance?.collegeLocation?.lat ? (
+                <span className="text-xs text-primary font-mono">
+                  Saved: {state.smartAttendance.collegeLocation.lat.toFixed(5)}, {state.smartAttendance.collegeLocation.lng.toFixed(5)}
+                </span>
+              ) : (
+                <span className="text-xs text-error font-mono">Not set</span>
+              )}
+              <button
+                className="voxel-btn-secondary flex items-center justify-center gap-2 text-label-sm mt-1"
+                onClick={() => setShowLocationSetup(true)}
+              >
+                <MapPin size={16} /> Change College Location
+              </button>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -249,8 +262,8 @@ export default function SettingsView() {
               <input
                 type="number"
                 className="voxel-input w-full"
-                value={state.smartAttendance?.radius || 100}
-                onChange={(e) => updateState({ smartAttendance: { ...state.smartAttendance, radius: parseInt(e.target.value) || 100 } })}
+                value={state.smartAttendance?.radius || DEFAULT_SMART_RADIUS}
+                onChange={(e) => updateState({ smartAttendance: { ...state.smartAttendance, radius: parseInt(e.target.value) || DEFAULT_SMART_RADIUS } })}
               />
             </div>
 
@@ -260,6 +273,49 @@ export default function SettingsView() {
           </div>
         )}
       </section>
+
+      {showLocationSetup && (
+        <div className="fixed inset-0 z-[80] bg-black/50 px-4 py-8 flex items-center justify-center">
+          <div className="voxel-card w-full max-w-md max-h-[88vh] overflow-y-auto p-5 flex flex-col gap-4 bg-surface">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-body-md text-on-surface font-header uppercase">Set College Location</h3>
+                <p className="text-label-sm text-on-surface-variant mt-1">
+                  Choose one option to enable Smart Attendance.
+                </p>
+              </div>
+              <button
+                className="border-2 border-outline bg-surface-container w-9 h-9 flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0"
+                onClick={closeLocationSetup}
+                aria-label="Close location setup"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <button className="voxel-btn-secondary flex items-center justify-center gap-2" onClick={handleSetVesitLocation}>
+              <MapPin size={18} /> Option 1: VESIT
+            </button>
+            <span className="text-[10px] text-on-surface-variant font-mono text-center">
+              19.045701, 72.889137
+            </span>
+
+            <button
+              className="voxel-btn-secondary flex items-center justify-center gap-2"
+              onClick={() => setShowManualLocation((current) => !current)}
+            >
+              <Locate size={18} /> Option 2: Set Manually
+            </button>
+
+            {showManualLocation && (
+              <LocationPicker
+                value={state.smartAttendance?.collegeLocation}
+                onSave={saveCollegeLocation}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Setup Section */}
       <section className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-6">

@@ -137,7 +137,7 @@ export default function Dashboard({ onNavigate }) {
         <div className="flex flex-col gap-4 w-full">
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 items-stretch gap-5 px-1 sm:gap-6 sm:px-0">
+            <div className="grid grid-cols-2 items-stretch gap-5 w-[92%] max-w-full mx-auto sm:gap-6">
                 <article className={statCardClass}>
                     <div className={statIconClass}>
                         <Donut className="text-primary" size={20} />
@@ -161,7 +161,7 @@ export default function Dashboard({ onNavigate }) {
 
             {/* Smart Attendance Status */}
             {state.smartAttendance?.enabled && (
-                <div className="voxel-card p-4 flex items-center gap-3 bg-surface-container-highest border-primary">
+                <div className="voxel-card w-[92%] max-w-full mx-auto p-4 flex items-center gap-3 bg-surface-container-highest border-primary">
                     <div className="w-10 h-10 bg-surface-container border-2 border-outline flex items-center justify-center shrink-0">
                         <MapPin size={20} className="text-primary" />
                     </div>
@@ -173,7 +173,7 @@ export default function Dashboard({ onNavigate }) {
             )}
 
             {/* Day Attendance Panel */}
-            <section className="voxel-card p-5 flex flex-col gap-4">
+            <section className="voxel-card w-[92%] max-w-full mx-auto p-5 flex flex-col gap-4">
 
                 {/* Date Nav Header */}
                 <div className="flex items-center justify-between">
@@ -258,14 +258,14 @@ export default function Dashboard({ onNavigate }) {
                 )}
 
                 {!isHoliday && lectures.length > 0 && (
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-3 w-full px-1 sm:px-2">
                         {lectures.map((l) => {
                             const key = getLectureKey(l);
                             const status = dayAttendance[key];
                             return (
                                 <div
                                     key={l._origIdx}
-                                    className={`border-2 border-outline px-4 py-3 shadow-[2px_2px_0px_var(--color-outline)] flex items-center gap-3 transition-all
+                                    className={`w-full border-2 border-outline p-4 shadow-[2px_2px_0px_var(--color-outline)] flex items-center gap-3 transition-all
                                         ${status === 'present' ? 'bg-[#d4f7e0]' : status === 'absent' ? 'bg-[#fde8e8]' : status === 'needs-review' ? 'bg-[#fdf0d5]' : 'bg-surface-container-lowest'}`}
                                 >
                                     {/* Colour stripe */}

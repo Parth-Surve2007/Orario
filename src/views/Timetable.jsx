@@ -130,7 +130,7 @@ export default function Timetable({ onNavigate }) {
               <p className="text-body-md text-on-surface-variant">No lectures scheduled.</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 w-full px-1 sm:px-2">
               {lectures.map((l, i) => {
                 const teacher = getTeacher(l.name);
                 return (
@@ -139,14 +139,14 @@ export default function Timetable({ onNavigate }) {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.04, duration: 0.2 }}
-                    className="bg-surface-container-lowest border-2 border-outline px-4 py-3 shadow-[2px_2px_0px_var(--color-outline)] flex items-center gap-4"
+                    className="w-full bg-surface-container-lowest border-2 border-outline p-4 shadow-[2px_2px_0px_var(--color-outline)] flex items-start gap-4"
                   >
-                    <div className="w-2 h-8 bg-secondary shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-label-sm text-secondary uppercase tracking-wider font-bold mb-0.5">{l.time}</div>
-                      <div className="text-body-md font-medium text-on-surface truncate">{l.name}</div>
+                    <div className="w-2 h-10 bg-secondary shrink-0 mt-1" />
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="text-label-sm text-secondary uppercase tracking-wider font-bold mb-1">{l.time}</div>
+                      <div className="text-body-md font-medium text-on-surface leading-5 whitespace-normal break-words">{l.name}</div>
                       {teacher && (
-                        <div className="text-label-sm text-on-surface-variant font-medium mt-0.5">{teacher}</div>
+                        <div className="text-label-sm text-on-surface-variant font-medium mt-1 leading-4 whitespace-normal break-words">{teacher}</div>
                       )}
                     </div>
                   </motion.div>

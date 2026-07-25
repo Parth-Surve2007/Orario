@@ -13,6 +13,59 @@ export default function Stats({ onNavigate }) {
     const holidays = Array.isArray(state.holidays) ? state.holidays : [];
 
     const clean = (s) => s.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/II/g, '2');
+    const normalizeBatch = (value) => String(value || '')
+      .toUpperCase()
+      .replace(/^BATCH\s*/, '')
+      .replace(/^B/, '')
+      .replace(/II/g, '2')
+      .replace(/I/g, '1')
+      .replace(/[^0-9A-Z]/g, '');
+
+    const cleanSubjectName = (value) => String(value || '')
+      .toUpperCase()
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(/\bBATCH\b.*$/g, ' ')
+      .replace(/\b\d{3,4}\b/g, ' ')
+      .replace(/\b(LANGUAGE\s+)?LAB\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const getSelectedBatchSubject = (lectureName) => {
+      if (!state.selectedBatch) return '';
+
+      const selectedBatch = normalizeBatch(state.selectedBatch);
+      const fullName = String(lectureName || '').toUpperCase();
+      const batchPattern = /([A-Z][A-Z0-9&\-\s]*?)\s+BATCH\s+(II|III|IV|I|\d+)/g;
+      let match;
+
+      while ((match = batchPattern.exec(fullName)) !== null) {
+        if (normalizeBatch(match[2]) !== selectedBatch) continue;
+
+        const subject = cleanSubjectName(match[1]);
+        if (subject) return subject;
+      }
+
+      return '';
+    };
+
+    const resolveSubjectInfo = (lectureName) => {
+      const fullName = String(lectureName || '').toUpperCase();
+      const batchSubject = getSelectedBatchSubject(fullName);
+      const base = batchSubject || cleanSubjectName(fullName.split('-')[0]);
+      if (!base) return null;
+
+      const search = clean(base);
+      const matchedSub = Object.keys(mappings).find(s => {
+        const t = clean(s);
+        return search.startsWith(t) || t.startsWith(search);
+      });
+      const isLab = Boolean(batchSubject) || fullName.includes('LAB') || fullName.includes('PRACTICAL') || fullName.includes('PRAC');
+
+      return {
+        label: `${matchedSub || base} (${isLab ? 'Lab' : 'Theory'})`,
+        teacher: matchedSub ? (mappings[matchedSub] || '') : '',
+      };
+    };
 
     const lectureMatches = (l) => {
       if (!l) return false;
@@ -87,33 +140,21 @@ export default function Stats({ onNavigate }) {
         let teacher = '';
 
         if (lecture && lectureMatches(lecture)) {
-          const fullName = lecture.name.toUpperCase();
-          const isLab = fullName.includes('LAB') || fullName.includes('PRACTICAL') || fullName.includes('PRAC');
-          const base = fullName.split('(')[0].split('-')[0].trim();
-          const search = clean(base);
-
-          const matchedSub = Object.keys(mappings).find(s => {
-            const t = clean(s);
-            return search.startsWith(t) || t.startsWith(search);
-          });
-
-          subLabel = `${matchedSub || base} (${isLab ? 'Lab' : 'Theory'})`;
-          teacher = matchedSub ? (mappings[matchedSub] || '') : '';
+          const resolved = resolveSubjectInfo(lecture.name);
+          if (resolved) {
+            subLabel = resolved.label;
+            teacher = resolved.teacher;
+          }
 
         } else if (!lecture && lastUnder !== -1 && firstUnder !== -1 && firstUnder !== lastUnder) {
           // No timetable match — still count using name embedded in the key
           const nameFromKey = id.slice(firstUnder + 1, lastUnder);
           if (nameFromKey) {
-            const fullName = nameFromKey.toUpperCase();
-            const isLab = fullName.includes('LAB') || fullName.includes('PRACTICAL');
-            const base = fullName.split('(')[0].split('-')[0].trim();
-            const search = clean(base);
-            const matchedSub = Object.keys(mappings).find(s => {
-              const t = clean(s);
-              return search.startsWith(t) || t.startsWith(search);
-            });
-            subLabel = `${matchedSub || base} (${isLab ? 'Lab' : 'Theory'})`;
-            teacher = matchedSub ? (mappings[matchedSub] || '') : '';
+            const resolved = resolveSubjectInfo(nameFromKey);
+            if (resolved) {
+              subLabel = resolved.label;
+              teacher = resolved.teacher;
+            }
           }
         }
 

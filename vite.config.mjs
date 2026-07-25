@@ -11,6 +11,11 @@ export default defineConfig({
         'icons/icon-192.png',
         'icons/icon-512.png',
         'icons/icon-maskable-512.png',
+        'icons/gumroad yellow.png',
+        'icons/cyber pink.png',
+        'icons/electric blue.png',
+        'icons/mint green.png',
+        'icons/lavender pop.png',
       ],
       manifest: {
         name: 'Orario | Smart Attendance Tracker',

@@ -22,7 +22,22 @@ export default function SettingsView() {
   const backupInputRef = useRef(null);
   const [showLocationSetup, setShowLocationSetup] = useState(false);
   const [showManualLocation, setShowManualLocation] = useState(false);
+  const [dialog, setDialog] = useState(null);
   const selectedColorTheme = THEMES[colorTheme] || Object.values(THEMES)[0];
+
+  const closeDialog = () => {
+    const action = dialog?.onClose;
+    setDialog(null);
+    action?.();
+  };
+
+  const showNotice = (title, message, onClose) => {
+    setDialog({ type: 'notice', title, message, onClose });
+  };
+
+  const showConfirm = (title, message, onConfirm) => {
+    setDialog({ type: 'confirm', title, message, onConfirm });
+  };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -44,10 +59,10 @@ export default function SettingsView() {
 
       await saveExcelSheets(result.allSheetsJSON);
 
-      alert(`File uploaded! Detected ${result.classes.length} classes.`);
+      showNotice('Upload Complete', `Detected ${result.classes.length} classes.`);
     } catch (err) {
       console.error(err);
-      alert('Error parsing Excel file.');
+      showNotice('Upload Failed', 'Error parsing Excel file.');
     }
   };
 
@@ -62,15 +77,15 @@ export default function SettingsView() {
   const saveSemesterDates = () => {
     const start = document.getElementById('sem-start').value;
     const end = document.getElementById('sem-end').value;
-    if (!start || !end) return alert('Fill both dates');
+    if (!start || !end) return showNotice('Missing Dates', 'Fill both dates.');
     updateState({ semester: { start, end } });
-    alert('Saved semester dates!');
+    showNotice('Settings Saved', 'Semester dates saved successfully.');
   };
 
   const addHoliday = () => {
     const date = holidayInputRef.current?.value;
-    if (!date) return alert('Pick a date first.');
-    if ((state.holidays || []).includes(date)) return alert('Already added.');
+    if (!date) return showNotice('Pick a Date', 'Pick a date first.');
+    if ((state.holidays || []).includes(date)) return showNotice('Already Added', 'This holiday is already in your list.');
     updateState({ holidays: [...(state.holidays || []), date].sort() });
     holidayInputRef.current.value = '';
   };
@@ -80,10 +95,14 @@ export default function SettingsView() {
   };
 
   const resetApp = async () => {
-    if (confirm('Clear all app data and start fresh? This action cannot be undone.')) {
-      await clearAllData();
-      window.location.reload();
-    }
+    showConfirm(
+      'Clear All Data?',
+      'This action cannot be undone. Orario will reset and reload.',
+      async () => {
+        await clearAllData();
+        window.location.reload();
+      }
+    );
   };
 
   const handleExportData = async () => {
@@ -93,7 +112,7 @@ export default function SettingsView() {
       downloadJsonBackup(payload, `orario-backup-${date}.json`);
     } catch (error) {
       console.error(error);
-      alert('Failed to export data.');
+      showNotice('Export Failed', 'Failed to export data.');
     }
   };
 
@@ -106,11 +125,10 @@ export default function SettingsView() {
       const text = await file.text();
       const payload = JSON.parse(text);
       await importAllData(payload);
-      alert('Backup imported successfully. Reloading app...');
-      window.location.reload();
+      showNotice('Backup Imported', 'Reloading Orario now...', () => window.location.reload());
     } catch (error) {
       console.error(error);
-      alert('Failed to import backup. Please choose a valid Orario JSON file.');
+      showNotice('Import Failed', 'Please choose a valid Orario JSON file.');
     }
   };
 
@@ -133,15 +151,48 @@ export default function SettingsView() {
       }
     });
     closeLocationSetup();
+    showNotice('Location Saved', 'College location saved successfully.');
   };
 
   const handleSetVesitLocation = () => {
     saveCollegeLocation(VESIT_LOCATION);
   };
 
-  const handleSmartAttendanceToggle = () => {
+  const requestLocationAccess = () => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(false);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        () => resolve(true),
+        () => resolve(false),
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
+  };
+
+  const showLocationPermissionHelp = () => {
+    showNotice(
+      'Location Permission Needed',
+      'Allow location for Orario in your browser/app settings, then come back and tap Enable again. Android: site settings > location. iOS: Settings > Safari or browser > Location.'
+    );
+  };
+
+  const handleSmartAttendanceToggle = async () => {
     if (state.smartAttendance?.enabled) {
       updateState({ smartAttendance: { ...state.smartAttendance, enabled: false } });
+      return;
+    }
+
+    const hasLocationAccess = await requestLocationAccess();
+    if (!hasLocationAccess) {
+      showLocationPermissionHelp();
       return;
     }
 
@@ -217,7 +268,7 @@ export default function SettingsView() {
       </section>
 
       {/* Smart Attendance Section */}
-      <section className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-6">
+      <section id="tour-gps-settings" className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-6 scroll-mt-6">
         <header>
           <h2 className="text-headline-lg-mobile text-on-surface font-header mb-1 flex items-center gap-2">
             <MapPin size={24} className="text-primary" /> Smart Attendance
@@ -274,6 +325,44 @@ export default function SettingsView() {
         )}
       </section>
 
+      {dialog && (
+        <div className="fixed inset-0 z-[90] bg-black/50 px-4 py-8 flex items-center justify-center">
+          <div className="voxel-card w-full max-w-sm p-5 bg-surface flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-primary border-2 border-outline flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0">
+                {dialog.type === 'confirm' ? <Trash2 size={18} className="text-on-primary" /> : <Check size={18} className="text-on-primary" />}
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-body-md text-on-surface font-header uppercase">{dialog.title}</h3>
+                <p className="text-label-sm text-on-surface-variant mt-1 leading-5">{dialog.message}</p>
+              </div>
+            </div>
+
+            {dialog.type === 'confirm' ? (
+              <div className="grid grid-cols-2 gap-3">
+                <button className="voxel-btn-secondary text-label-sm" onClick={() => setDialog(null)}>
+                  Cancel
+                </button>
+                <button
+                  className="voxel-btn-primary text-label-sm"
+                  onClick={() => {
+                    const action = dialog.onConfirm;
+                    setDialog(null);
+                    action?.();
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
+            ) : (
+              <button className="voxel-btn-primary text-label-sm" onClick={closeDialog}>
+                OK
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {showLocationSetup && (
         <div className="fixed inset-0 z-[80] bg-black/50 px-4 py-8 flex items-center justify-center">
           <div className="voxel-card w-full max-w-md max-h-[88vh] overflow-y-auto p-5 flex flex-col gap-4 bg-surface">
@@ -318,7 +407,7 @@ export default function SettingsView() {
       )}
 
       {/* Setup Section */}
-      <section className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-6">
+      <section id="tour-setup-dates" className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-6 scroll-mt-6">
         <header>
           <h2 className="text-headline-lg-mobile text-on-surface font-header mb-1">Setup</h2>
           <p className="text-body-md text-on-surface-variant">Configure your semester dates to initialize attendance tracking.</p>
@@ -347,12 +436,12 @@ export default function SettingsView() {
       </section>
 
       {/* Upload Timetable Section */}
-      <section className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-5">
+      <section id="tour-upload-file" className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-5 scroll-mt-6">
         <header>
           <h2 className="text-headline-lg-mobile text-on-surface font-header mb-1">Upload Timetable</h2>
           <p className="text-body-md text-on-surface-variant">
             {state.lastUploadedFile
-              ? <span>Active: <span className="font-bold text-on-surface">{state.lastUploadedFile}</span></span>
+              ? <span><span className="font-bold text-on-surface">Active:</span> <span className="font-normal text-on-surface-variant">{state.lastUploadedFile}</span></span>
               : 'Import your class schedule to begin tracking attendance.'}
           </p>
         </header>
@@ -387,7 +476,7 @@ export default function SettingsView() {
           )}
 
           {/* Class Name Input */}
-          <div className="flex flex-col gap-2">
+          <div id="tour-class-select" className="flex flex-col gap-2 scroll-mt-6">
             <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Class Name (e.g. DIEC)</label>
             <input
               type="text"
@@ -469,7 +558,12 @@ export default function SettingsView() {
 
       {/* Holidays Section */}
       <section className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-4">
-        <h3 className="text-headline-lg-mobile text-on-surface font-header">Holidays</h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-headline-lg-mobile text-on-surface font-header">Holidays</h3>
+          <span className="text-label-sm text-on-surface-variant font-bold border-2 border-outline px-2 py-1 bg-surface-container-lowest">
+            {(state.holidays || []).length}
+          </span>
+        </div>
 
         {/* Add holiday row */}
         <div className="flex gap-3 items-end">
@@ -490,7 +584,7 @@ export default function SettingsView() {
         </div>
 
         {/* Holiday list */}
-        <div className="flex flex-col divide-y divide-outline/10 max-h-[200px] overflow-y-auto">
+        <div className="flex flex-col divide-y divide-outline/10 max-h-28 overflow-y-auto pr-1">
           {(state.holidays || []).length === 0
             ? <p className="text-label-sm text-on-surface-variant py-3 font-bold">No holidays added.</p>
             : (state.holidays || []).map(d => (

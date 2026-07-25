@@ -8,6 +8,11 @@ const ASSETS = [
     './icons/icon-192.png',
     './icons/icon-512.png',
     './icons/icon-maskable-512.png',
+    './icons/gumroad yellow.png',
+    './icons/cyber pink.png',
+    './icons/electric blue.png',
+    './icons/mint green.png',
+    './icons/lavender pop.png',
     'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap',
     'https://unpkg.com/lucide@latest',
     'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js'

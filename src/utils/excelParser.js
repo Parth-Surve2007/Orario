@@ -16,13 +16,17 @@ export const processExcelFile = async (file, currentClasses) => {
 
         let subjectMappings = {};
         let timetableSchedule = {};
-        let classes = [...(currentClasses || [])];
+        let classes = [];
         
         // 1. Allocation Sheet
         const allocSheetName = sheetNames.find(n => n.toUpperCase().includes('ALLOCATION') || n.toUpperCase().includes('DIV'));
         if (allocSheetName) {
             const allocData = allSheetsJSON[allocSheetName];
-            subjectMappings = parseAllocationSheet(allocData);
+            const allocationResult = parseAllocationSheet(allocData);
+            subjectMappings = allocationResult.subjectMappings;
+            allocationResult.classes.forEach(c => {
+                if (!classes.includes(c)) classes.push(c);
+            });
         }
 
         // 2. Timetable Sheet
@@ -32,10 +36,18 @@ export const processExcelFile = async (file, currentClasses) => {
         const parsedTimetable = parseTimetable(activeData);
         timetableSchedule = parsedTimetable.schedule;
         
-        // Merge unique classes
+        // Merge unique classes. Prefer explicit allocation-sheet classes when available;
+        // fall back to timetable headers for files without allocation data.
         parsedTimetable.classes.forEach(c => {
             if (!classes.includes(c)) classes.push(c);
         });
+
+        if (classes.length === 0) {
+            (currentClasses || []).forEach(c => {
+                const normalized = normalizeClassName(c);
+                if (isClassName(normalized) && !classes.includes(normalized)) classes.push(normalized);
+            });
+        }
 
         resolve({
             sheetNames,
@@ -57,37 +69,73 @@ export const processExcelFile = async (file, currentClasses) => {
   });
 };
 
+const CLASS_NAME_PATTERN = /^D\d+[A-Z]{0,3}(?:-[A-Z])?$/;
+
+function normalizeClassName(value) {
+    return String(value || '')
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, '')
+        .replace(/^DI/, 'D1');
+}
+
+function isClassName(value) {
+    return CLASS_NAME_PATTERN.test(normalizeClassName(value));
+}
+
+function extractClassTokens(value) {
+    return String(value || '')
+        .toUpperCase()
+        .split(/[\s/(),:;|]+/)
+        .map(normalizeClassName)
+        .filter(isClassName);
+}
+
 function parseAllocationSheet(data) {
-    if (!data || data.length === 0) return {};
+    if (!data || data.length === 0) return { subjectMappings: {}, classes: [] };
 
-    let mappings = {};
-    let classColumns = [];
+    const subjectMappings = {};
+    const classes = [];
+    let matrixClassColumns = [];
 
-    data.forEach((row, rowIndex) => {
-        const detectedClassesInRow = row.map((cell, i) => {
-            const val = String(cell || '').trim().toUpperCase();
-            if (!val) return null;
-            const isClass = /^[A-DA-Z]\d+[A-Z]*$/.test(val) || val.length === 3 || val.length === 4;
-            const isNoise = ['VES', 'TIME', 'ROOM', 'DAY', 'SUBJ', 'TEACH'].some(n => val.includes(n));
-            return (isClass && !isNoise) ? { name: val, index: i } : null;
-        }).filter(x => x);
+    data.forEach((row) => {
+        const explicitClassHeaderIndex = row.findIndex((cell) => String(cell || '').trim().toUpperCase() === 'CLASS');
+        if (explicitClassHeaderIndex !== -1) {
+            data.forEach((candidateRow) => {
+                const detectedClass = normalizeClassName(candidateRow[explicitClassHeaderIndex]);
+                if (isClassName(detectedClass) && !classes.includes(detectedClass)) {
+                    classes.push(detectedClass);
+                    if (!subjectMappings[detectedClass]) subjectMappings[detectedClass] = {};
+                }
+            });
+        }
 
-        if (detectedClassesInRow.length > 2) {
-            classColumns = detectedClassesInRow;
-            classColumns.forEach(c => { if (!mappings[c.name]) mappings[c.name] = {}; });
-        } else if (classColumns.length > 0) {
+        const detectedClassesInRow = row
+            .map((cell, index) => {
+                const tokens = extractClassTokens(cell);
+                return tokens.length === 1 ? { name: tokens[0], index } : null;
+            })
+            .filter(Boolean);
+
+        if (detectedClassesInRow.length > 1) {
+            matrixClassColumns = detectedClassesInRow;
+            matrixClassColumns.forEach((c) => {
+                if (!classes.includes(c.name)) classes.push(c.name);
+                if (!subjectMappings[c.name]) subjectMappings[c.name] = {};
+            });
+        } else if (matrixClassColumns.length > 0) {
             const subjectName = String(row[0] || '').trim().replace(/\n/g, ' ').toUpperCase();
             if (subjectName && subjectName.length >= 2 && subjectName.length < 25 && !subjectName.includes('VES')) {
-                classColumns.forEach(cls => {
+                matrixClassColumns.forEach((cls) => {
                     let teacherName = String(row[cls.index] || '').trim().replace(/\n/g, ' ');
                     if (!teacherName || teacherName.toLowerCase() === 'null') teacherName = 'Assigned';
-                    mappings[cls.name][subjectName] = teacherName;
+                    subjectMappings[cls.name][subjectName] = teacherName;
                 });
             }
         }
     });
 
-    return mappings;
+    return { subjectMappings, classes };
 }
 
 function parseTimetable(data) {
@@ -110,30 +158,21 @@ function parseTimetable(data) {
             }
         });
 
-        const isPotentialHeader = row.some(c => {
-            if (typeof c !== 'string') return false;
-            const clean = c.trim().toUpperCase();
-            return clean.length >= 3 && clean.length <= 8 && !noise.includes(clean) && !days.includes(clean) && !abbr[clean];
-        });
-
-        if (isPotentialHeader) {
-            row.forEach((cell, i) => {
-                if (cell && i > 0) {
-                    const cellStr = String(cell).toUpperCase().trim();
-                    const parts = cellStr.split(/[\s\/(,)]+/);
-                    parts.forEach(p => {
-                        if (p.length >= 3 && !noise.includes(p) && !days.includes(p) && !abbr[p] && !/^\d+$/.test(p)) {
-                            if (!classes.includes(p)) classes.push(p);
-                            if (!mappings[i]) mappings[i] = [];
-                            if (!mappings[i].includes(p)) mappings[i].push(p);
-                        }
-                    });
-                }
-            });
-        }
-
         const first = String(row[0] || '').toUpperCase().trim();
         const isTime = /(\d{1,2})[\.:](\d{2})/.test(first) || first.includes('AM') || first.includes('PM');
+
+        if (!isTime) {
+            row.forEach((cell, i) => {
+                if (!cell || i === 0) return;
+
+                const tokens = extractClassTokens(cell);
+                tokens.forEach((className) => {
+                    if (!classes.includes(className)) classes.push(className);
+                    if (!mappings[i]) mappings[i] = [];
+                    if (!mappings[i].includes(className)) mappings[i].push(className);
+                });
+            });
+        }
 
         if (currentDay && isTime) {
             Object.keys(mappings).forEach(i => {

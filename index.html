@@ -12,11 +12,39 @@
     <meta name="theme-color" content="#FFEB3B" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#FFEB3B">
+    <script>
+        (() => {
+            try {
+                const snapshot = JSON.parse(localStorage.getItem('orario_theme_snapshot') || 'null');
+                if (!snapshot || !snapshot.vars) return;
+
+                Object.entries(snapshot.vars).forEach(([key, value]) => {
+                    document.documentElement.style.setProperty(key, value);
+                });
+                document.documentElement.style.setProperty('--app-theme-color', snapshot.themeColor || snapshot.vars['--color-background']);
+                document.documentElement.style.colorScheme = snapshot.theme === 'dark' ? 'dark' : 'light';
+                document.documentElement.classList.toggle('dark', snapshot.theme === 'dark');
+
+                document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+                    meta.setAttribute('content', snapshot.themeColor || snapshot.vars['--color-background']);
+                });
+
+                if (snapshot.iconPath) {
+                    document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach((link) => {
+                        link.setAttribute('href', snapshot.iconPath);
+                    });
+                }
+            } catch {
+                // Keep default theme if the snapshot is unavailable or invalid.
+            }
+        })();
+    </script>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Orario">
-    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="1254x1254" href="/icons/gumroad%20yellow.png" data-orario-theme-icon="true">
+    <link rel="apple-touch-icon" sizes="1254x1254" href="/icons/gumroad%20yellow.png" data-orario-theme-icon="true">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

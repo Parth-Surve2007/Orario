@@ -249,12 +249,46 @@ export const THEMES = {
 export const DEFAULT_THEME = 'yellow-brutal';
 export const DEFAULT_LIGHT_THEME_COLOR = '#FFEB3B';
 export const DEFAULT_DARK_THEME_COLOR = '#141414';
+export const THEME_STORAGE_KEY = 'orario_theme_snapshot';
+
+export const THEME_ICON_PATHS = {
+  'yellow-brutal': '/icons/gumroad%20yellow.png',
+  'cyber-pink': '/icons/cyber%20pink.png',
+  'electric-blue': '/icons/electric%20blue.png',
+  'mint-green': '/icons/mint%20green.png',
+  'lavender-pop': '/icons/lavender%20pop.png',
+};
 
 export function getThemeStatusBarColor(themeKey, isDark = false) {
   const theme = THEMES[themeKey] || THEMES[DEFAULT_THEME];
   const modeVars = isDark ? theme.vars.dark : theme.vars.light;
 
   return modeVars['--color-background'] || (isDark ? DEFAULT_DARK_THEME_COLOR : DEFAULT_LIGHT_THEME_COLOR);
+}
+
+function syncIconLink(rel, href, sizes) {
+  let link = document.querySelector(`link[rel="${rel}"][data-orario-theme-icon="true"]`);
+
+  if (!link) {
+    link = document.querySelector(`link[rel="${rel}"]`) || document.createElement('link');
+    link.setAttribute('rel', rel);
+    link.setAttribute('data-orario-theme-icon', 'true');
+    document.head.appendChild(link);
+  }
+
+  link.setAttribute('href', href);
+  link.setAttribute('type', 'image/png');
+  if (sizes) link.setAttribute('sizes', sizes);
+}
+
+export function getThemeIconPath(themeKey) {
+  return THEME_ICON_PATHS[themeKey] || THEME_ICON_PATHS[DEFAULT_THEME];
+}
+
+function syncAppIcons(themeKey) {
+  const iconPath = getThemeIconPath(themeKey);
+  syncIconLink('icon', iconPath, '1254x1254');
+  syncIconLink('apple-touch-icon', iconPath, '1254x1254');
 }
 
 function syncThemeColorMeta(color, isDark) {
@@ -276,7 +310,40 @@ function syncThemeColorMeta(color, isDark) {
   }
 }
 
-export function applyTheme(themeKey, isDark = false) {
+export function getStoredThemeSnapshot() {
+  try {
+    const raw = localStorage.getItem(THEME_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || !THEMES[parsed.colorTheme]) return null;
+
+    return {
+      colorTheme: parsed.colorTheme,
+      theme: parsed.theme === 'dark' ? 'dark' : 'light',
+    };
+  } catch {
+    return null;
+  }
+}
+
+function storeThemeSnapshot(themeKey, isDark) {
+  try {
+    const selectedThemeKey = THEMES[themeKey] ? themeKey : DEFAULT_THEME;
+    const modeVars = THEMES[selectedThemeKey].vars[isDark ? 'dark' : 'light'];
+    localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify({
+      colorTheme: selectedThemeKey,
+      theme: isDark ? 'dark' : 'light',
+      vars: modeVars,
+      themeColor: modeVars['--color-background'] || (isDark ? DEFAULT_DARK_THEME_COLOR : DEFAULT_LIGHT_THEME_COLOR),
+      iconPath: getThemeIconPath(selectedThemeKey),
+    }));
+  } catch {
+    // Ignore storage failures; theme still applies for the current session.
+  }
+}
+
+export function applyTheme(themeKey, isDark = false, options = {}) {
   const theme = THEMES[themeKey] || THEMES[DEFAULT_THEME];
   const root = document.documentElement;
   const modeVars = isDark ? theme.vars.dark : theme.vars.light;
@@ -289,4 +356,9 @@ export function applyTheme(themeKey, isDark = false) {
   root.style.setProperty('--app-theme-color', themeColor);
   root.style.colorScheme = isDark ? 'dark' : 'light';
   syncThemeColorMeta(themeColor, isDark);
+  syncAppIcons(THEMES[themeKey] ? themeKey : DEFAULT_THEME);
+
+  if (options.persist !== false) {
+    storeThemeSnapshot(themeKey, isDark);
+  }
 }

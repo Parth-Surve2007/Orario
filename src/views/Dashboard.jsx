@@ -173,7 +173,7 @@ export default function Dashboard({ onNavigate }) {
             )}
 
             {/* Day Attendance Panel */}
-            <section className="voxel-card w-[92%] max-w-full mx-auto p-5 flex flex-col gap-4">
+            <section id="tour-mark-attendance" className="voxel-card w-[92%] max-w-full mx-auto p-5 flex flex-col gap-4 scroll-mt-6">
 
                 {/* Date Nav Header */}
                 <div className="flex items-center justify-between">

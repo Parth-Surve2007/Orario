@@ -1,6 +1,6 @@
 /**
  * Gets the current GPS location using HTML5 Geolocation API.
- * This works natively on Web, and Capacitor also maps this to native APIs on mobile.
+ * This works in the browser/PWA using the HTML5 Geolocation API.
  * @returns {Promise<{lat: number, lng: number} | null>}
  */
 export const getCurrentLocation = () => {

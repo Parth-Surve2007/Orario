@@ -2,7 +2,6 @@
   "name": "orario",
   "version": "1.0.0",
   "description": "",
-  "main": "app.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,14 +12,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@capacitor/android": "^8.4.1",
-    "@capacitor/cli": "^8.4.1",
-    "@capacitor/core": "^8.4.1",
-    "@capacitor/geolocation": "^8.2.0",
-    "@capacitor/status-bar": "^8.0.2",
     "@tsparticles/react": "^4.3.1",
     "@tsparticles/slim": "^4.3.1",
-    "capacitor-plugin-safe-area": "^5.0.0",
     "clsx": "^2.1.1",
     "dexie": "^4.4.4",
     "framer-motion": "^12.42.2",

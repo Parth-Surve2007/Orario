@@ -1,24 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
 
-const DISMISS_KEY = 'orario_install_dismissed';
-
-function safelyGetStorage(key) {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function safelySetStorage(key, value) {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // Storage can fail in private mode or restricted browsers. Ignore safely.
-  }
-}
-
 function isStandaloneApp() {
   return (
     window.matchMedia?.('(display-mode: standalone)').matches ||
@@ -35,32 +17,76 @@ function getInstallPlatform() {
   const isAndroid = /android/i.test(ua);
   const isSamsung = /samsungbrowser/i.test(ua);
   const isChrome = /chrome|crios/i.test(ua) && !/edg|opr|samsungbrowser/i.test(ua);
+  const isSafari = /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
 
-  if (isIOS) return 'ios';
+  if (isIOS && isSafari) return 'ios-safari';
+  if (isIOS) return 'ios-other';
   if (isAndroid && isSamsung) return 'samsung-android';
   if (isAndroid && isChrome) return 'chrome-android';
   if (isAndroid) return 'android';
   return 'desktop';
 }
 
-function getInstructions(platform) {
-  if (platform === 'ios') {
-    return 'On iPhone/iPad: tap Share, then Add to Home Screen. iOS does not support the automatic install popup.';
+function getInstallTitle(platform) {
+  if (platform.startsWith('ios')) return 'Install on iPhone/iPad';
+  if (platform.includes('android')) return 'Install on Android';
+  return 'Install Orario';
+}
+
+function getInstallSteps(platform, hasNativePrompt) {
+  if (hasNativePrompt) {
+    return [
+      'Tap Install App below.',
+      'Confirm the browser install popup.',
+      'Open Orario from your home screen/app drawer.',
+    ];
+  }
+
+  if (platform === 'ios-safari') {
+    return [
+      'Tap the Share button in Safari.',
+      'Scroll and tap Add to Home Screen.',
+      'Tap Add. Open Orario from your home screen.',
+    ];
+  }
+
+  if (platform === 'ios-other') {
+    return [
+      'For the most reliable install, open this page in Safari.',
+      'Tap Share in Safari, then Add to Home Screen.',
+      'Tap Add. Open Orario from your home screen.',
+    ];
   }
 
   if (platform === 'samsung-android') {
-    return 'On Samsung Internet: open the browser menu, then tap Add page to or Install app. If install is unavailable, refresh after the page fully loads.';
+    return [
+      'Open the Samsung Internet menu.',
+      'Tap Add page to or Install app.',
+      'Choose Home screen/apps and confirm.',
+    ];
   }
 
   if (platform === 'chrome-android') {
-    return 'On Android Chrome: tap Install App if shown. If Chrome only shows Create shortcut, refresh once after the page fully loads and try the Chrome menu again.';
+    return [
+      'Wait until the page fully loads, then open Chrome menu ⋮.',
+      'Tap Install app. If you only see Create shortcut, refresh once and try again.',
+      'Confirm install and open Orario from your app drawer.',
+    ];
   }
 
   if (platform === 'android') {
-    return 'On Android: use your browser menu and choose Install app or Add to Home screen if available.';
+    return [
+      'Open your browser menu.',
+      'Choose Install app or Add to Home screen if available.',
+      'Confirm and open Orario from your home screen.',
+    ];
   }
 
-  return 'Use your browser menu to install Orario if your browser supports PWAs.';
+  return [
+    'Open your browser menu.',
+    'Choose Install Orario or Install this site if available.',
+    'Launch Orario from your apps or desktop shortcut.',
+  ];
 }
 
 export default function InstallPrompt() {
@@ -72,22 +98,13 @@ export default function InstallPrompt() {
   useEffect(() => {
     if (isStandaloneApp()) return undefined;
 
-    const dismissed = safelyGetStorage(DISMISS_KEY) === '1' || safelyGetStorage('attendease_install_dismissed') === '1';
-    if (dismissed) return undefined;
-
     const detectedPlatform = getInstallPlatform();
     setPlatform(detectedPlatform);
 
     let cancelled = false;
-    let fallbackTimer = null;
-
-    const showFallbackPrompt = () => {
-      if (cancelled || isStandaloneApp()) return;
-      setVisible(true);
-    };
-
-    // iOS never fires beforeinstallprompt. Some Android browsers also do not.
-    fallbackTimer = window.setTimeout(showFallbackPrompt, detectedPlatform === 'ios' ? 700 : 2200);
+    const fallbackTimer = window.setTimeout(() => {
+      if (!cancelled && !isStandaloneApp()) setVisible(true);
+    }, detectedPlatform.startsWith('ios') ? 600 : 1400);
 
     const handleBeforeInstallPrompt = (event) => {
       if (cancelled || isStandaloneApp()) return;
@@ -100,7 +117,6 @@ export default function InstallPrompt() {
     };
 
     const handleAppInstalled = () => {
-      safelySetStorage(DISMISS_KEY, '1');
       setVisible(false);
       setDeferredPrompt(null);
       setInstallError('');
@@ -120,27 +136,25 @@ export default function InstallPrompt() {
   useEffect(() => {
     if (!visible) return undefined;
 
-    const media = window.matchMedia?.('(display-mode: standalone)');
-    const hideIfStandalone = () => {
+    const hideIfInstalled = () => {
       if (isStandaloneApp()) setVisible(false);
     };
 
-    media?.addEventListener?.('change', hideIfStandalone);
-    window.addEventListener('visibilitychange', hideIfStandalone);
-    window.addEventListener('focus', hideIfStandalone);
+    const standaloneQuery = window.matchMedia?.('(display-mode: standalone)');
+    const fullscreenQuery = window.matchMedia?.('(display-mode: fullscreen)');
+
+    standaloneQuery?.addEventListener?.('change', hideIfInstalled);
+    fullscreenQuery?.addEventListener?.('change', hideIfInstalled);
+    window.addEventListener('focus', hideIfInstalled);
+    window.addEventListener('visibilitychange', hideIfInstalled);
 
     return () => {
-      media?.removeEventListener?.('change', hideIfStandalone);
-      window.removeEventListener('visibilitychange', hideIfStandalone);
-      window.removeEventListener('focus', hideIfStandalone);
+      standaloneQuery?.removeEventListener?.('change', hideIfInstalled);
+      fullscreenQuery?.removeEventListener?.('change', hideIfInstalled);
+      window.removeEventListener('focus', hideIfInstalled);
+      window.removeEventListener('visibilitychange', hideIfInstalled);
     };
   }, [visible]);
-
-  const dismiss = () => {
-    safelySetStorage(DISMISS_KEY, '1');
-    setVisible(false);
-    setInstallError('');
-  };
 
   const install = async () => {
     if (!deferredPrompt) return;
@@ -150,12 +164,13 @@ export default function InstallPrompt() {
       const choice = await deferredPrompt.userChoice;
 
       if (choice?.outcome === 'accepted') {
-        safelySetStorage(DISMISS_KEY, '1');
         setVisible(false);
+      } else {
+        setInstallError('Install was cancelled. You can also use the browser menu to install Orario.');
       }
     } catch (error) {
       console.error('Install prompt failed', error);
-      setInstallError('Install popup could not open. Use your browser menu to install Orario.');
+      setInstallError('Install popup could not open. Use the browser menu steps below.');
     } finally {
       setDeferredPrompt(null);
     }
@@ -164,6 +179,7 @@ export default function InstallPrompt() {
   if (!visible || isStandaloneApp()) return null;
 
   const hasNativeInstallPrompt = Boolean(deferredPrompt);
+  const steps = getInstallSteps(platform, hasNativeInstallPrompt);
 
   return (
     <div
@@ -174,25 +190,30 @@ export default function InstallPrompt() {
       <div className="voxel-card p-4 flex flex-col gap-3 bg-surface-container">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-body-md font-bold text-on-surface">Install Orario</p>
+            <p className="text-body-md font-bold text-on-surface">{getInstallTitle(platform)}</p>
             <p className="text-label-sm text-on-surface-variant mt-1 leading-5">
-              {hasNativeInstallPrompt
-                ? 'Install Orario as an app for standalone launch, offline support, and faster attendance tracking.'
-                : getInstructions(platform)}
+              Install Orario for standalone launch, offline support, and faster attendance tracking.
             </p>
-            {installError && (
-              <p className="text-[10px] text-error font-bold mt-2 leading-4">{installError}</p>
-            )}
           </div>
           <button
             type="button"
-            onClick={dismiss}
+            onClick={() => setVisible(false)}
             className="shrink-0 w-8 h-8 border-2 border-outline bg-surface-container-lowest flex items-center justify-center"
-            aria-label="Dismiss install prompt"
+            aria-label="Hide install prompt"
           >
             <X size={16} />
           </button>
         </div>
+
+        <ol className="flex flex-col gap-1.5 text-label-sm text-on-surface-variant list-decimal pl-5 leading-5">
+          {steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+
+        {installError && (
+          <p className="text-[10px] text-error font-bold leading-4">{installError}</p>
+        )}
 
         {hasNativeInstallPrompt ? (
           <button

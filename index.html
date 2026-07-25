@@ -29,11 +29,6 @@
                     meta.setAttribute('content', snapshot.themeColor || snapshot.vars['--color-background']);
                 });
 
-                if (snapshot.iconPath) {
-                    document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach((link) => {
-                        link.setAttribute('href', snapshot.iconPath);
-                    });
-                }
             } catch {
                 // Keep default theme if the snapshot is unavailable or invalid.
             }

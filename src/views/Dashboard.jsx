@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { AppContext } from '../App';
 import { Hand, Upload, School, Donut, Check, X, Sun, CheckCheck, XSquare, CalendarOff, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import { getLocalDateKey } from '../utils/geofence';
@@ -27,6 +27,17 @@ export default function Dashboard({ onNavigate }) {
         setViewDate(d.toISOString().split('T')[0]);
     };
     const goToday = () => setViewDate(todayStr);
+
+    useEffect(() => {
+        if (state.attendanceReviewFocusDate !== todayStr) return undefined;
+
+        setViewDate(todayStr);
+        const timeout = window.setTimeout(() => {
+            document.getElementById('tour-mark-attendance')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 250);
+
+        return () => window.clearTimeout(timeout);
+    }, [state.attendanceReviewFocusDate, todayStr]);
 
     // ── If no class selected ──────────────────────────────────────────────────
     if (!state.selectedClass) {
@@ -107,6 +118,7 @@ export default function Dashboard({ onNavigate }) {
     // Count today's present/absent
     const todayPresent = lectures.filter(l => dayAttendance[getLectureKey(l)] === 'present').length;
     const todayAbsent = lectures.filter(l => dayAttendance[getLectureKey(l)] === 'absent').length;
+    const isAttendanceReviewFocus = state.attendanceReviewFocusDate === viewDate && viewDate === todayStr;
 
     const statCardClass = "voxel-card p-6 min-h-[224px] sm:min-h-[240px] h-full flex flex-col relative text-left cursor-pointer transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-outline active:translate-x-[2px] active:translate-y-[2px]";
     const statIconClass = "w-12 h-12 bg-surface-container border-2 border-outline flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0";
@@ -169,7 +181,10 @@ export default function Dashboard({ onNavigate }) {
             )}
 
             {/* Day Attendance Panel */}
-            <section id="tour-mark-attendance" className="voxel-card w-[92%] max-w-full mx-auto p-5 flex flex-col gap-4 scroll-mt-6">
+            <section
+                id="tour-mark-attendance"
+                className={`voxel-card w-[92%] max-w-full mx-auto p-5 flex flex-col gap-4 scroll-mt-6 transition-shadow ${isAttendanceReviewFocus ? 'shadow-[5px_5px_0px_var(--color-primary)]' : ''}`}
+            >
 
                 {/* Date Nav Header */}
                 <div className="flex items-center justify-between">
@@ -258,11 +273,13 @@ export default function Dashboard({ onNavigate }) {
                         {lectures.map((l) => {
                             const key = getLectureKey(l);
                             const status = dayAttendance[key];
+                            const shouldReview = isAttendanceReviewFocus && (!status || status === 'needs-review');
                             return (
                                 <div
                                     key={l._origIdx}
                                     className={`w-full border-2 border-outline p-4 shadow-[2px_2px_0px_var(--color-outline)] flex items-center gap-3 transition-all
-                                        ${status === 'present' ? 'bg-[#d4f7e0]' : status === 'absent' ? 'bg-[#fde8e8]' : status === 'needs-review' ? 'bg-[#fdf0d5]' : 'bg-surface-container-lowest'}`}
+                                        ${status === 'present' ? 'bg-[#d4f7e0]' : status === 'absent' ? 'bg-[#fde8e8]' : status === 'needs-review' ? 'bg-[#fdf0d5]' : 'bg-surface-container-lowest'}
+                                        ${shouldReview ? 'outline outline-2 outline-offset-2 outline-primary' : ''}`}
                                 >
                                     {/* Colour stripe */}
                                     <div className={`w-2 h-10 shrink-0 border border-outline
@@ -274,6 +291,9 @@ export default function Dashboard({ onNavigate }) {
                                             <div className="text-label-sm text-secondary uppercase tracking-wider font-bold mb-0.5">{l.time}</div>
                                             {status === 'needs-review' && (
                                                 <span className="text-[10px] font-bold text-[#b45309] bg-[#fef3c7] border border-[#f59e0b] px-1 rounded-sm uppercase tracking-wider">Needs Review</span>
+                                            )}
+                                            {shouldReview && !status && (
+                                                <span className="text-[10px] font-bold text-primary bg-primary-container/40 border border-primary px-1 rounded-sm uppercase tracking-wider">Review</span>
                                             )}
                                         </div>
                                         <div className="text-body-md font-medium text-on-surface truncate">{l.name}</div>

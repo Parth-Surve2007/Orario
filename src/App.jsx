@@ -10,8 +10,9 @@ import ParticleBackground from './components/ParticleBackground';
 import InstallPrompt from './components/InstallPrompt';
 import { applyTheme, DEFAULT_THEME, getStoredThemeSnapshot } from './utils/themes';
 import { useSmartAttendance } from './hooks/useSmartAttendance';
-import { useLectureReminders } from './hooks/useLectureReminders';
+import { useReviewAttendanceReminder } from './hooks/useReviewAttendanceReminder';
 import { loadAppState, saveAppState } from './utils/db';
+import { getLocalDateKey } from './utils/geofence';
 
 export const AppContext = React.createContext({});
 
@@ -79,14 +80,13 @@ export default function App() {
     selectedClass: '',
     classes: [],
     tasks: [],
-    notificationsEnabled: false,
-    reminderMinutesBefore: 10,
-    reminderLastNotified: {},
     smartAttendance: {
       enabled: false,
       collegeLocation: { lat: null, lng: null },
       radius: 200,
-      lastChecks: {}
+      lastChecks: {},
+      reviewReminderEnabled: true,
+      reviewReminderDelayMinutes: 30
     }
   });
 
@@ -183,6 +183,37 @@ export default function App() {
     setState(prev => ({ ...prev, ...updates }));
   };
 
+  const openAttendanceReview = () => {
+    setCurrentView('dashboard');
+    setState((prev) => ({
+      ...prev,
+      attendanceReviewFocusDate: getLocalDateKey(),
+    }));
+  };
+
+  useEffect(() => {
+    const openFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('view') === 'dashboard' && params.get('focus') === 'attendanceReview') {
+        openAttendanceReview();
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    };
+
+    openFromUrl();
+    const handleServiceWorkerMessage = (event) => {
+      if (event.data?.type === 'OPEN_ATTENDANCE_REVIEW') openAttendanceReview();
+    };
+
+    window.addEventListener('orario-review-attendance-open', openAttendanceReview);
+    navigator.serviceWorker?.addEventListener?.('message', handleServiceWorkerMessage);
+
+    return () => {
+      window.removeEventListener('orario-review-attendance-open', openAttendanceReview);
+      navigator.serviceWorker?.removeEventListener?.('message', handleServiceWorkerMessage);
+    };
+  }, []);
+
   const finishTour = () => {
     localStorage.setItem(TOUR_STORAGE_KEY, '1');
     setShowTour(false);
@@ -198,7 +229,7 @@ export default function App() {
   };
 
   useSmartAttendance(state, updateState);
-  useLectureReminders(state, updateState);
+  useReviewAttendanceReminder(state);
 
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },

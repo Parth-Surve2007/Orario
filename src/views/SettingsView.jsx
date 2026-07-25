@@ -10,12 +10,11 @@ import {
   importAllData,
   saveExcelSheets,
 } from '../utils/db';
-import { Moon, Sun, Bell, BellOff, Calendar, Save, Upload, Trash2, Plus, X, Check, MapPin, Locate, Download, FileUp, Clock } from 'lucide-react';
+import { Moon, Sun, Bell, Calendar, Save, Upload, Trash2, Plus, X, Check, MapPin, Locate, Download, FileUp, Clock } from 'lucide-react';
+import { DEFAULT_REVIEW_DELAY_MINUTES, REVIEW_REMINDER_DELAYS } from '../services/ReminderService';
 
 const VESIT_LOCATION = { lat: 19.045701, lng: 72.889137 };
 const DEFAULT_SMART_RADIUS = 200;
-const DEFAULT_REMINDER_MINUTES = 10;
-const REMINDER_OPTIONS = [0, 5, 10, 15, 30];
 
 export default function SettingsView() {
   const { state, updateState, theme, setTheme, colorTheme, setColorTheme } = useContext(AppContext);
@@ -25,7 +24,7 @@ export default function SettingsView() {
   const [showLocationSetup, setShowLocationSetup] = useState(false);
   const [showManualLocation, setShowManualLocation] = useState(false);
   const [showReminderSettings, setShowReminderSettings] = useState(false);
-  const [reminderDraft, setReminderDraft] = useState(state.reminderMinutesBefore ?? DEFAULT_REMINDER_MINUTES);
+  const [reminderDraft, setReminderDraft] = useState(state.smartAttendance?.reviewReminderDelayMinutes ?? DEFAULT_REVIEW_DELAY_MINUTES);
   const [dialog, setDialog] = useState(null);
   const selectedColorTheme = THEMES[colorTheme] || Object.values(THEMES)[0];
 
@@ -152,6 +151,8 @@ export default function SettingsView() {
         enabled: true,
         collegeLocation: location,
         radius: state.smartAttendance?.radius || DEFAULT_SMART_RADIUS,
+        reviewReminderEnabled: state.smartAttendance?.reviewReminderEnabled ?? true,
+        reviewReminderDelayMinutes: state.smartAttendance?.reviewReminderDelayMinutes ?? DEFAULT_REVIEW_DELAY_MINUTES,
       }
     });
     closeLocationSetup();
@@ -203,9 +204,15 @@ export default function SettingsView() {
     return permission === 'granted';
   };
 
-  const handleNotificationsToggle = async () => {
-    if (state.notificationsEnabled) {
-      updateState({ notificationsEnabled: false });
+  const handleReviewReminderToggle = async () => {
+    const currentValue = state.smartAttendance?.reviewReminderEnabled ?? true;
+    if (currentValue) {
+      updateState({
+        smartAttendance: {
+          ...state.smartAttendance,
+          reviewReminderEnabled: false,
+        }
+      });
       return;
     }
 
@@ -216,20 +223,29 @@ export default function SettingsView() {
     }
 
     updateState({
-      notificationsEnabled: true,
-      reminderMinutesBefore: state.reminderMinutesBefore ?? DEFAULT_REMINDER_MINUTES,
+      smartAttendance: {
+        ...state.smartAttendance,
+        reviewReminderEnabled: true,
+        reviewReminderDelayMinutes: state.smartAttendance?.reviewReminderDelayMinutes ?? DEFAULT_REVIEW_DELAY_MINUTES,
+      }
     });
     setShowReminderSettings(true);
   };
 
   const openReminderSettings = () => {
-    setReminderDraft(state.reminderMinutesBefore ?? DEFAULT_REMINDER_MINUTES);
+    setReminderDraft(state.smartAttendance?.reviewReminderDelayMinutes ?? DEFAULT_REVIEW_DELAY_MINUTES);
     setShowReminderSettings(true);
   };
 
   const saveReminderSettings = () => {
-    const minutes = Math.max(0, Math.min(120, parseInt(reminderDraft, 10) || 0));
-    updateState({ reminderMinutesBefore: minutes });
+    const allowedDelays = REVIEW_REMINDER_DELAYS.map((option) => option.value);
+    const minutes = allowedDelays.includes(Number(reminderDraft)) ? Number(reminderDraft) : DEFAULT_REVIEW_DELAY_MINUTES;
+    updateState({
+      smartAttendance: {
+        ...state.smartAttendance,
+        reviewReminderDelayMinutes: minutes,
+      }
+    });
     setReminderDraft(minutes);
     setShowReminderSettings(false);
   };
@@ -267,36 +283,6 @@ export default function SettingsView() {
           >
             {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
-        </div>
-
-        <div className="flex items-center justify-between py-2 border-b border-outline/10">
-          <div className="flex flex-col">
-            <span className="text-body-md text-on-surface font-bold">Daily Reminders</span>
-            <span className="text-label-sm text-on-surface-variant">
-              {state.notificationsEnabled
-                ? `${state.reminderMinutesBefore ?? DEFAULT_REMINDER_MINUTES} min before lecture`
-                : 'Get notified for classes'}
-            </span>
-          </div>
-          <div className="flex gap-2 shrink-0">
-            {state.notificationsEnabled && (
-              <button
-                type="button"
-                className="voxel-btn-secondary text-label-sm flex items-center gap-2 font-bold"
-                onClick={openReminderSettings}
-              >
-                <Clock size={16} />
-                Timing
-              </button>
-            )}
-            <button
-              className={`voxel-btn-secondary text-label-sm flex items-center gap-2 font-bold ${state.notificationsEnabled ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container text-on-surface'}`}
-              onClick={handleNotificationsToggle}
-            >
-              {state.notificationsEnabled ? <Bell size={16} /> : <BellOff size={16} />}
-              {state.notificationsEnabled ? 'Enabled' : 'Enable'}
-            </button>
-          </div>
         </div>
 
         {/* ── Colour Theme Picker ── */}
@@ -384,8 +370,39 @@ export default function SettingsView() {
               />
             </div>
 
+            <div className="border-t border-outline/10 pt-4 flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col">
+                  <span className="text-body-md text-on-surface font-bold">Review Attendance Reminder</span>
+                  <span className="text-label-sm text-on-surface-variant">
+                    {state.smartAttendance?.reviewReminderEnabled === false
+                      ? 'Off'
+                      : `${state.smartAttendance?.reviewReminderDelayMinutes ?? DEFAULT_REVIEW_DELAY_MINUTES} min after final lecture`}
+                  </span>
+                </div>
+                <button
+                  className={`voxel-btn-secondary text-label-sm flex items-center gap-2 font-bold ${state.smartAttendance?.reviewReminderEnabled === false ? 'bg-surface-container text-on-surface' : 'bg-primary-container text-on-primary-container'}`}
+                  onClick={handleReviewReminderToggle}
+                >
+                  <Bell size={16} />
+                  {state.smartAttendance?.reviewReminderEnabled === false ? 'Enable' : 'Enabled'}
+                </button>
+              </div>
+
+              {state.smartAttendance?.reviewReminderEnabled !== false && (
+                <button
+                  type="button"
+                  className="voxel-btn-secondary text-label-sm flex items-center justify-center gap-2 font-bold"
+                  onClick={openReminderSettings}
+                >
+                  <Clock size={16} />
+                  Reminder Delay
+                </button>
+              )}
+            </div>
+
             <div className="mt-2 p-3 bg-primary-container/20 border-l-4 border-primary text-xs text-on-surface-variant">
-              <strong>Privacy Note:</strong> Orario only checks your location at the exact scheduled start and end times of your classes. Location is stored locally and never uploaded.
+              <strong>Privacy Note:</strong> Orario only checks your location at scheduled lecture start and end times. The review reminder is scheduled locally from your timetable and does not track location.
             </div>
           </div>
         )}
@@ -438,23 +455,24 @@ export default function SettingsView() {
                   <Clock size={18} className="text-on-primary" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-body-md text-on-surface font-header uppercase">Reminder Timing</h3>
+                  <h3 className="text-body-md text-on-surface font-header uppercase">Review Reminder</h3>
                   <p className="text-label-sm text-on-surface-variant mt-1 leading-5">
-                    Choose when Orario should notify you before each lecture.
+                    Choose how long after the final scheduled lecture Orario should ask you to review attendance.
                   </p>
                 </div>
               </div>
               <button
                 className="border-2 border-outline bg-surface-container w-9 h-9 flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0"
                 onClick={() => setShowReminderSettings(false)}
-                aria-label="Close reminder timing"
+                aria-label="Close review reminder settings"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <div className="grid grid-cols-5 gap-2">
-              {REMINDER_OPTIONS.map((minutes) => {
+            <div className="grid grid-cols-3 gap-2">
+              {REVIEW_REMINDER_DELAYS.map((option) => {
+                const minutes = option.value;
                 const isActive = Number(reminderDraft) === minutes;
                 return (
                   <button
@@ -463,22 +481,10 @@ export default function SettingsView() {
                     className={`border-2 border-outline px-2 py-2 text-label-sm font-black shadow-[2px_2px_0px_var(--color-outline)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${isActive ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface'}`}
                     onClick={() => setReminderDraft(minutes)}
                   >
-                    {minutes}
+                    {option.label}
                   </button>
                 );
               })}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Minutes Before Lecture</label>
-              <input
-                type="number"
-                min="0"
-                max="120"
-                className="voxel-input w-full"
-                value={reminderDraft}
-                onChange={(event) => setReminderDraft(event.target.value)}
-              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">

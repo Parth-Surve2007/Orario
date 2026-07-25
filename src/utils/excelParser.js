@@ -76,7 +76,8 @@ function normalizeClassName(value) {
         .trim()
         .toUpperCase()
         .replace(/\s+/g, '')
-        .replace(/^DI/, 'D1');
+        .replace(/^DI/, 'D1')
+        .replace(/^D(\d+)([A-Z]+)-([A-Z])$/, 'D$1$2$3');
 }
 
 function isClassName(value) {
@@ -144,6 +145,7 @@ function parseTimetable(data) {
     const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
     const abbr = { 'MON': 'MONDAY', 'TUE': 'TUESDAY', 'WED': 'WEDNESDAY', 'THU': 'THURSDAY', 'FRI': 'FRIDAY', 'SAT': 'SATURDAY' };
     const noise = ['BREAK', 'LUNCH', 'RECESS', 'TIME', 'ROOM', 'LAB', 'LEC', 'SEC', 'SEM', 'YEAR', 'DURATION', 'SUBJECT', 'TEACHER', 'FACULTY', 'CLASS'];
+    const isTimeCell = (value) => /(\d{1,2})[\.:](\d{2})/.test(String(value || '').toUpperCase().trim());
 
     if (!data || data.length === 0) return { classes, schedule };
 
@@ -158,8 +160,11 @@ function parseTimetable(data) {
             }
         });
 
-        const first = String(row[0] || '').toUpperCase().trim();
-        const isTime = /(\d{1,2})[\.:](\d{2})/.test(first) || first.includes('AM') || first.includes('PM');
+        const timeColumns = row
+            .map((cell, index) => ({ index, value: String(cell || '').toUpperCase().trim() }))
+            .filter(({ value }) => isTimeCell(value));
+        const first = timeColumns[0]?.value || String(row[0] || '').toUpperCase().trim();
+        const isTime = timeColumns.length > 0;
 
         if (!isTime) {
             row.forEach((cell, i) => {
@@ -178,10 +183,13 @@ function parseTimetable(data) {
             Object.keys(mappings).forEach(i => {
                 const content = row[i];
                 if (content && String(content).trim().length > 1) {
+                    const timeForColumn = [...timeColumns]
+                        .reverse()
+                        .find(({ index }) => index < Number(i))?.value || first;
                     const cleanContent = String(content).trim();
                     if (!noise.includes(cleanContent.toUpperCase())) {
                         mappings[i].forEach(cls => {
-                            schedule[currentDay].push({ time: first, name: cleanContent, className: cls });
+                            schedule[currentDay].push({ time: timeForColumn, name: cleanContent, className: cls });
                         });
                     }
                 }

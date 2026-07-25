@@ -10,6 +10,7 @@ import ParticleBackground from './components/ParticleBackground';
 import InstallPrompt from './components/InstallPrompt';
 import { applyTheme, DEFAULT_THEME, getStoredThemeSnapshot } from './utils/themes';
 import { useSmartAttendance } from './hooks/useSmartAttendance';
+import { useLectureReminders } from './hooks/useLectureReminders';
 import { loadAppState, saveAppState } from './utils/db';
 
 export const AppContext = React.createContext({});
@@ -79,6 +80,8 @@ export default function App() {
     classes: [],
     tasks: [],
     notificationsEnabled: false,
+    reminderMinutesBefore: 10,
+    reminderLastNotified: {},
     smartAttendance: {
       enabled: false,
       collegeLocation: { lat: null, lng: null },
@@ -195,6 +198,7 @@ export default function App() {
   };
 
   useSmartAttendance(state, updateState);
+  useLectureReminders(state, updateState);
 
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },

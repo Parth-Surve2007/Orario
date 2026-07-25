@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { getCurrentLocation, isInsideCampus, parseLectureTime } from '../utils/geofence';
+import { getCurrentLocation, getLocalDateKey, isInsideCampus, parseLectureTime } from '../utils/geofence';
+import { lectureMatchesSelection } from '../utils/lectureMatching';
 
 export function useSmartAttendance(state, updateState) {
     
@@ -14,7 +15,7 @@ export function useSmartAttendance(state, updateState) {
             const currentState = stateRef.current;
             if (!currentState?.smartAttendance?.enabled) return;
             
-            const todayStr = new Date().toISOString().split('T')[0];
+            const todayStr = getLocalDateKey();
             const holidays = Array.isArray(currentState.holidays) ? currentState.holidays : [];
             if (holidays.includes(todayStr)) return; // Holiday, no checks
 
@@ -24,30 +25,9 @@ export function useSmartAttendance(state, updateState) {
             
             const allDayLectures = (currentState.timetableSchedule && currentState.timetableSchedule[dayKey]) || [];
             
-            const lectureMatches = (l) => {
-                if (!l) return false;
-                const myClass = (currentState.selectedClass || '').toUpperCase();
-                const normalize = (s) => (s || '').replace(/I/g, '1').toUpperCase();
-                const myClassNorm = normalize(myClass);
-                const lClass = (l.className || '').toUpperCase();
-                if (lClass !== myClass && normalize(lClass) !== myClassNorm) return false;
-                if (currentState.selectedBatch) {
-                    const name = (l.name || '').toUpperCase();
-                    const matches = name.match(/\(([^)]+)\)/g);
-                    if (matches) {
-                        const hasBatchIndicator = matches.some(m => m.includes('(B') || m.includes(' B'));
-                        if (hasBatchIndicator) {
-                            const batchMatch = matches.some(m => m.includes(currentState.selectedBatch));
-                            if (!batchMatch) return false;
-                        }
-                    }
-                }
-                return true;
-            };
-
             const lectures = allDayLectures
                 .map((l, originalIdx) => ({ ...l, _origIdx: originalIdx }))
-                .filter(l => lectureMatches(l));
+                .filter(l => lectureMatchesSelection(l, currentState.selectedClass, currentState.selectedBatch));
                 
             const getLectureKey = (l) => `${l.time}_${l.name}_${l._origIdx}`;
             

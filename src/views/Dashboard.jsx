@@ -1,12 +1,14 @@
 import React, { useContext, useState } from 'react';
 import { AppContext } from '../App';
 import { Hand, Upload, School, Donut, Check, X, Sun, CheckCheck, XSquare, CalendarOff, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import { getLocalDateKey } from '../utils/geofence';
+import { lectureMatchesSelection } from '../utils/lectureMatching';
 
 export default function Dashboard({ onNavigate }) {
     const { state, updateState } = useContext(AppContext);
 
     // Date navigation (today by default)
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateKey();
     const [viewDate, setViewDate] = useState(todayStr);
 
     const dateObj = new Date(viewDate + 'T12:00:00'); // noon to avoid TZ edge cases
@@ -66,32 +68,11 @@ export default function Dashboard({ onNavigate }) {
     const pctColor = pct >= 75 ? 'var(--color-secondary)' : (pct >= 50 ? 'var(--color-secondary-container)' : 'var(--color-error)');
 
     // Today's lectures
-    const lectureMatches = (l) => {
-        if (!l) return false;
-        const myClass = (state.selectedClass || '').toUpperCase();
-        const normalize = (s) => (s || '').replace(/I/g, '1').toUpperCase();
-        const myClassNorm = normalize(myClass);
-        const lClass = (l.className || '').toUpperCase();
-        if (lClass !== myClass && normalize(lClass) !== myClassNorm) return false;
-        if (state.selectedBatch) {
-            const name = (l.name || '').toUpperCase();
-            const matches = name.match(/\(([^)]+)\)/g);
-            if (matches) {
-                const hasBatchIndicator = matches.some(m => m.includes('(B') || m.includes(' B'));
-                if (hasBatchIndicator) {
-                    const batchMatch = matches.some(m => m.includes(state.selectedBatch));
-                    if (!batchMatch) return false;
-                }
-            }
-        }
-        return true;
-    };
-
     // Keep full unfiltered list so original indices are stable for Stats lookups
     const allDayLectures = (state.timetableSchedule && state.timetableSchedule[dayKey]) || [];
     const lectures = allDayLectures
         .map((l, originalIdx) => ({ ...l, _origIdx: originalIdx }))
-        .filter(l => lectureMatches(l));
+        .filter(l => lectureMatchesSelection(l, state.selectedClass, state.selectedBatch));
 
     // ── Attendance helpers ────────────────────────────────────────────────────
     // Key uses ORIGINAL unfiltered index so Stats.jsx can look up dayLectures[index] correctly
@@ -127,18 +108,28 @@ export default function Dashboard({ onNavigate }) {
     const todayPresent = lectures.filter(l => dayAttendance[getLectureKey(l)] === 'present').length;
     const todayAbsent = lectures.filter(l => dayAttendance[getLectureKey(l)] === 'absent').length;
 
-    const statCardClass = "voxel-card p-6 min-h-[224px] sm:min-h-[240px] h-full flex flex-col relative";
+    const statCardClass = "voxel-card p-6 min-h-[224px] sm:min-h-[240px] h-full flex flex-col relative text-left cursor-pointer transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-outline active:translate-x-[2px] active:translate-y-[2px]";
     const statIconClass = "w-12 h-12 bg-surface-container border-2 border-outline flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0";
     const statBodyClass = "mt-auto flex flex-col gap-3 items-start pt-8";
     const statValueClass = "text-display-lg font-bold leading-none tabular-nums";
     const statTitleClass = "text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold leading-5";
+
+    const openTodaysTimetable = () => {
+        updateState({ currentTimetableDay: dayKey });
+        onNavigate?.('timetable');
+    };
 
     return (
         <div className="flex flex-col gap-4 w-full">
 
             {/* Stat Cards */}
             <div className="grid grid-cols-2 items-stretch gap-5 w-[92%] max-w-full mx-auto sm:gap-6">
-                <article className={statCardClass}>
+                <button
+                    type="button"
+                    className={statCardClass}
+                    onClick={() => onNavigate?.('statistics')}
+                    aria-label="Open attendance statistics"
+                >
                     <div className={statIconClass}>
                         <Donut className="text-primary" size={20} />
                     </div>
@@ -146,9 +137,14 @@ export default function Dashboard({ onNavigate }) {
                         <div className={statValueClass} style={{ color: pctColor }}>{pct}%</div>
                         <div className={statTitleClass}>Overall Attendance</div>
                     </div>
-                </article>
+                </button>
 
-                <article className={statCardClass}>
+                <button
+                    type="button"
+                    className={statCardClass}
+                    onClick={openTodaysTimetable}
+                    aria-label="Open today's timetable"
+                >
                     <div className={statIconClass}>
                         <School className="text-secondary" size={20} />
                     </div>
@@ -156,7 +152,7 @@ export default function Dashboard({ onNavigate }) {
                         <div className={`${statValueClass} text-on-surface`}>{lectures.length}</div>
                         <div className={statTitleClass}>Lectures Today</div>
                     </div>
-                </article>
+                </button>
             </div>
 
             {/* Smart Attendance Status */}

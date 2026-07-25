@@ -2,6 +2,7 @@ import React, { useContext, useState } from 'react';
 import { AppContext } from '../App';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, CalendarX } from 'lucide-react';
+import { lectureMatchesSelection } from '../utils/lectureMatching';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 const DAY_ABBR = { MONDAY: 'Mon', TUESDAY: 'Tue', WEDNESDAY: 'Wed', THURSDAY: 'Thu', FRIDAY: 'Fri', SATURDAY: 'Sat' };
@@ -75,7 +76,8 @@ export default function Timetable({ onNavigate }) {
     );
   }
 
-  const lectures = (state.timetableSchedule[selectedDay] || []).filter(lectureMatches);
+  const lectures = (state.timetableSchedule[selectedDay] || [])
+    .filter((lecture) => lectureMatchesSelection(lecture, state.selectedClass, state.selectedBatch));
 
   return (
     <div className="flex flex-col w-9/10 mx-auto gap-4 w-full">

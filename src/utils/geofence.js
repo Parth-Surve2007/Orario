@@ -59,8 +59,15 @@ export const isInsideCampus = (current, college, radiusMeters) => {
     return distance <= radiusMeters;
 };
 
+export const getLocalDateKey = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 /**
- * Parses "8:30 - 9:30" or "08:30-09:30" into Date objects for today.
+ * Parses "8:30 - 9:30", "08:30-09:30", or "8.30 AM-9.30AM" into Date objects for today.
  * @param {string} timeStr - The time range string.
  * @returns {{start: Date, end: Date} | null}
  */
@@ -69,17 +76,38 @@ export const parseLectureTime = (timeStr) => {
     const parts = timeStr.split('-');
     if (parts.length !== 2) return null;
 
-    const parseTime = (t) => {
-        const [h, m] = t.trim().split(':').map(Number);
+    const parseTime = (timePart, fallbackPeriod = '') => {
+        const normalized = String(timePart || '')
+            .trim()
+            .toUpperCase()
+            .replace(/\s+/g, ' ');
+        const match = normalized.match(/(\d{1,2})[\.:](\d{2})\s*(AM|PM)?/);
+        if (!match) return null;
+
+        let h = Number(match[1]);
+        const m = Number(match[2]);
+        const period = match[3] || fallbackPeriod;
+        if (!Number.isFinite(h) || !Number.isFinite(m) || m > 59) return null;
+
+        if (period === 'PM' && h < 12) h += 12;
+        if (period === 'AM' && h === 12) h = 0;
+        if (h > 23) return null;
+
         const d = new Date();
         d.setHours(h, m, 0, 0);
         return d;
     };
 
     try {
+        const endPeriod = String(parts[1]).toUpperCase().match(/(AM|PM)/)?.[1] || '';
+        const startPeriod = String(parts[0]).toUpperCase().match(/(AM|PM)/)?.[1] || endPeriod;
+        const start = parseTime(parts[0], startPeriod);
+        const end = parseTime(parts[1], endPeriod);
+        if (!start || !end) return null;
+
         return {
-            start: parseTime(parts[0]),
-            end: parseTime(parts[1])
+            start,
+            end
         };
     } catch (e) {
         return null;

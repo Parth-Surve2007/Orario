@@ -10,10 +10,12 @@ import {
   importAllData,
   saveExcelSheets,
 } from '../utils/db';
-import { Moon, Sun, Bell, BellOff, Calendar, Save, Upload, Trash2, Plus, X, Check, MapPin, Locate, Download, FileUp } from 'lucide-react';
+import { Moon, Sun, Bell, BellOff, Calendar, Save, Upload, Trash2, Plus, X, Check, MapPin, Locate, Download, FileUp, Clock } from 'lucide-react';
 
 const VESIT_LOCATION = { lat: 19.045701, lng: 72.889137 };
 const DEFAULT_SMART_RADIUS = 200;
+const DEFAULT_REMINDER_MINUTES = 10;
+const REMINDER_OPTIONS = [0, 5, 10, 15, 30];
 
 export default function SettingsView() {
   const { state, updateState, theme, setTheme, colorTheme, setColorTheme } = useContext(AppContext);
@@ -22,6 +24,8 @@ export default function SettingsView() {
   const backupInputRef = useRef(null);
   const [showLocationSetup, setShowLocationSetup] = useState(false);
   const [showManualLocation, setShowManualLocation] = useState(false);
+  const [showReminderSettings, setShowReminderSettings] = useState(false);
+  const [reminderDraft, setReminderDraft] = useState(state.reminderMinutesBefore ?? DEFAULT_REMINDER_MINUTES);
   const [dialog, setDialog] = useState(null);
   const selectedColorTheme = THEMES[colorTheme] || Object.values(THEMES)[0];
 
@@ -184,6 +188,52 @@ export default function SettingsView() {
     );
   };
 
+  const showNotificationPermissionHelp = () => {
+    showNotice(
+      'Notification Permission Needed',
+      'Allow notifications for Orario in your browser/app settings, then come back and tap Enable again.'
+    );
+  };
+
+  const requestNotificationAccess = async () => {
+    if (!('Notification' in window)) return false;
+    if (Notification.permission === 'granted') return true;
+    if (Notification.permission === 'denied') return false;
+    const permission = await Notification.requestPermission();
+    return permission === 'granted';
+  };
+
+  const handleNotificationsToggle = async () => {
+    if (state.notificationsEnabled) {
+      updateState({ notificationsEnabled: false });
+      return;
+    }
+
+    const hasAccess = await requestNotificationAccess();
+    if (!hasAccess) {
+      showNotificationPermissionHelp();
+      return;
+    }
+
+    updateState({
+      notificationsEnabled: true,
+      reminderMinutesBefore: state.reminderMinutesBefore ?? DEFAULT_REMINDER_MINUTES,
+    });
+    setShowReminderSettings(true);
+  };
+
+  const openReminderSettings = () => {
+    setReminderDraft(state.reminderMinutesBefore ?? DEFAULT_REMINDER_MINUTES);
+    setShowReminderSettings(true);
+  };
+
+  const saveReminderSettings = () => {
+    const minutes = Math.max(0, Math.min(120, parseInt(reminderDraft, 10) || 0));
+    updateState({ reminderMinutesBefore: minutes });
+    setReminderDraft(minutes);
+    setShowReminderSettings(false);
+  };
+
   const handleSmartAttendanceToggle = async () => {
     if (state.smartAttendance?.enabled) {
       updateState({ smartAttendance: { ...state.smartAttendance, enabled: false } });
@@ -222,15 +272,31 @@ export default function SettingsView() {
         <div className="flex items-center justify-between py-2 border-b border-outline/10">
           <div className="flex flex-col">
             <span className="text-body-md text-on-surface font-bold">Daily Reminders</span>
-            <span className="text-label-sm text-on-surface-variant">Get notified for classes</span>
+            <span className="text-label-sm text-on-surface-variant">
+              {state.notificationsEnabled
+                ? `${state.reminderMinutesBefore ?? DEFAULT_REMINDER_MINUTES} min before lecture`
+                : 'Get notified for classes'}
+            </span>
           </div>
-          <button
-            className={`voxel-btn-secondary text-label-sm flex items-center gap-2 font-bold ${state.notificationsEnabled ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container text-on-surface'}`}
-            onClick={() => updateState({ notificationsEnabled: !state.notificationsEnabled })}
-          >
-            {state.notificationsEnabled ? <Bell size={16} /> : <BellOff size={16} />}
-            {state.notificationsEnabled ? 'Enabled' : 'Enable'}
-          </button>
+          <div className="flex gap-2 shrink-0">
+            {state.notificationsEnabled && (
+              <button
+                type="button"
+                className="voxel-btn-secondary text-label-sm flex items-center gap-2 font-bold"
+                onClick={openReminderSettings}
+              >
+                <Clock size={16} />
+                Timing
+              </button>
+            )}
+            <button
+              className={`voxel-btn-secondary text-label-sm flex items-center gap-2 font-bold ${state.notificationsEnabled ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container text-on-surface'}`}
+              onClick={handleNotificationsToggle}
+            >
+              {state.notificationsEnabled ? <Bell size={16} /> : <BellOff size={16} />}
+              {state.notificationsEnabled ? 'Enabled' : 'Enable'}
+            </button>
+          </div>
         </div>
 
         {/* ── Colour Theme Picker ── */}
@@ -359,6 +425,70 @@ export default function SettingsView() {
                 OK
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {showReminderSettings && (
+        <div className="fixed inset-0 z-[85] bg-black/50 px-4 py-8 flex items-center justify-center">
+          <div className="voxel-card w-full max-w-sm p-5 bg-surface flex flex-col gap-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-primary border-2 border-outline flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0">
+                  <Clock size={18} className="text-on-primary" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-body-md text-on-surface font-header uppercase">Reminder Timing</h3>
+                  <p className="text-label-sm text-on-surface-variant mt-1 leading-5">
+                    Choose when Orario should notify you before each lecture.
+                  </p>
+                </div>
+              </div>
+              <button
+                className="border-2 border-outline bg-surface-container w-9 h-9 flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0"
+                onClick={() => setShowReminderSettings(false)}
+                aria-label="Close reminder timing"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-5 gap-2">
+              {REMINDER_OPTIONS.map((minutes) => {
+                const isActive = Number(reminderDraft) === minutes;
+                return (
+                  <button
+                    key={minutes}
+                    type="button"
+                    className={`border-2 border-outline px-2 py-2 text-label-sm font-black shadow-[2px_2px_0px_var(--color-outline)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${isActive ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface'}`}
+                    onClick={() => setReminderDraft(minutes)}
+                  >
+                    {minutes}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Minutes Before Lecture</label>
+              <input
+                type="number"
+                min="0"
+                max="120"
+                className="voxel-input w-full"
+                value={reminderDraft}
+                onChange={(event) => setReminderDraft(event.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button className="voxel-btn-secondary text-label-sm" onClick={() => setShowReminderSettings(false)}>
+                Cancel
+              </button>
+              <button className="voxel-btn-primary text-label-sm" onClick={saveReminderSettings}>
+                Save
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -76,7 +76,7 @@ export default function Dashboard({ onNavigate }) {
         });
     });
     const pct = total > 0 ? Math.round((present / total) * 100) : 0;
-    const pctColor = pct >= 75 ? 'var(--color-secondary)' : (pct >= 50 ? 'var(--color-secondary-container)' : 'var(--color-error)');
+    const pctColor = pct >= 75 ? 'var(--color-secondary)' : 'var(--color-error)';
 
     // Today's lectures
     // Keep full unfiltered list so original indices are stable for Stats lookups

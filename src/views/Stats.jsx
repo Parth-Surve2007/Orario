@@ -192,9 +192,7 @@ export default function Stats({ onNavigate }) {
 
   const pctColor = stats.overallPct >= 75
     ? 'var(--color-secondary)'
-    : stats.overallPct >= 50
-      ? 'var(--color-secondary-container)'
-      : 'var(--color-error)';
+    : 'var(--color-error)';
 
   return (
     <div className="flex flex-col w-full mx-auto gap-6">
@@ -264,9 +262,7 @@ export default function Stats({ onNavigate }) {
                 const subPct = data.total > 0 ? Math.round((data.present / data.total) * 100) : 0;
                 const barColor = subPct >= 75
                   ? 'var(--color-secondary)'
-                  : subPct >= 50
-                    ? 'var(--color-secondary-container)'
-                    : 'var(--color-error)';
+                  : 'var(--color-error)';
 
                 return (
                   <div key={i} className="flex flex-col gap-1.5">

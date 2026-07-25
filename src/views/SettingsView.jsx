@@ -543,7 +543,7 @@ export default function SettingsView() {
       )}
 
       {/* Setup Section */}
-      <section id="tour-setup-dates" className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-6 scroll-mt-6">
+      <section id="tour-setup-dates" className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-6 scroll-mt-6 overflow-hidden">
         <header>
           <h2 className="text-headline-lg-mobile text-on-surface font-header mb-1">Setup</h2>
           <p className="text-body-md text-on-surface-variant">Configure your semester dates to initialize attendance tracking.</p>
@@ -553,14 +553,14 @@ export default function SettingsView() {
             <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Start Date</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" size={18} />
-              <input type="date" id="sem-start" defaultValue={state.semester?.start} className="voxel-input w-full pl-10" />
+              <input type="date" id="sem-start" defaultValue={state.semester?.start} className="voxel-input w-full pl-10 min-w-0" />
             </div>
           </div>
           <div className="flex flex-col gap-2">
             <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">End Date</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" size={18} />
-              <input type="date" id="sem-end" defaultValue={state.semester?.end} className="voxel-input w-full pl-10" />
+              <input type="date" id="sem-end" defaultValue={state.semester?.end} className="voxel-input w-full pl-10 min-w-0" />
             </div>
           </div>
         </div>
@@ -572,7 +572,7 @@ export default function SettingsView() {
       </section>
 
       {/* Upload Timetable Section */}
-      <section id="tour-upload-file" className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-5 scroll-mt-6">
+      <section id="tour-upload-file" className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-5 scroll-mt-6 overflow-hidden">
         <header>
           <h2 className="text-headline-lg-mobile text-on-surface font-header mb-1">Upload Timetable</h2>
           <p className="text-body-md text-on-surface-variant">
@@ -693,7 +693,7 @@ export default function SettingsView() {
       </section>
 
       {/* Holidays Section */}
-      <section className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-4">
+      <section className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-4 overflow-hidden">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-headline-lg-mobile text-on-surface font-header">Holidays</h3>
           <span className="text-label-sm text-on-surface-variant font-bold border-2 border-outline px-2 py-1 bg-surface-container-lowest">
@@ -702,8 +702,8 @@ export default function SettingsView() {
         </div>
 
         {/* Add holiday row */}
-        <div className="flex gap-3 items-end">
-          <div className="flex-1 flex flex-col gap-2">
+        <div className="flex gap-2 items-end">
+          <div className="flex-1 min-w-0 flex flex-col gap-2">
             <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Add Holiday</label>
             <input
               type="date"
@@ -712,7 +712,7 @@ export default function SettingsView() {
             />
           </div>
           <button
-            className="voxel-btn-primary flex items-center gap-1 font-bold shrink-0"
+            className="voxel-btn-primary flex items-center gap-1 font-bold shrink-0 self-end"
             onClick={addHoliday}
           >
             <Plus size={16} /> Add

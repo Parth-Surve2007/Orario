@@ -62,6 +62,9 @@
     min-height: 100dvh;
     min-height: -webkit-fill-available;
     overflow-x: hidden;
+    /* Account for iOS safe area on left/right (notch devices) */
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
     -webkit-tap-highlight-color: transparent;
     font-family: 'Fredoka', system-ui, sans-serif !important;
   }
@@ -93,6 +96,13 @@
     @apply bg-surface border-4 border-outline rounded-none shadow-[0px_-6px_0px_var(--color-outline)];
   }
 
+  /* iOS PWA: force GPU compositing to prevent fixed-position nav from "floating" */
+  .glass-nav {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    will-change: transform;
+  }
+
   .safe-top-header {
     padding-top: calc(1rem + env(safe-area-inset-top, 0px));
     padding-bottom: 1rem;
@@ -107,6 +117,11 @@
     box-sizing: border-box;
     height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
+    /* Cancel body safe-area padding so nav spans full width */
+    margin-left: calc(-1 * env(safe-area-inset-left, 0px));
+    margin-right: calc(-1 * env(safe-area-inset-right, 0px));
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
     bottom: 0;
   }
 

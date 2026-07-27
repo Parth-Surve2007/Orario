@@ -54,7 +54,7 @@ export const calculateDistance = (lat1, lon1, lat2, lon2) => {
  * Checks if current location is within radius of college.
  */
 export const isInsideCampus = (current, college, radiusMeters) => {
-    if (!current || !college || current.lat == null || college.lat == null) return false;
+    if (!current || !college || current.lat == null || current.lng == null || college.lat == null || college.lng == null) return false;
     const distance = calculateDistance(current.lat, current.lng, college.lat, college.lng);
     return distance <= radiusMeters;
 };
@@ -73,8 +73,14 @@ export const getLocalDateKey = (date = new Date()) => {
  */
 export const parseLectureTime = (timeStr) => {
     if (!timeStr) return null;
-    const parts = timeStr.split('-');
+    const parts = String(timeStr).split(/\s*[-–]\s*/);
     if (parts.length !== 2) return null;
+
+    const inferCollegeHour = (hour, explicitPeriod) => {
+        if (explicitPeriod) return hour;
+        if (hour >= 1 && hour <= 7) return hour + 12;
+        return hour;
+    };
 
     const parseTime = (timePart, fallbackPeriod = '') => {
         const normalized = String(timePart || '')
@@ -91,6 +97,7 @@ export const parseLectureTime = (timeStr) => {
 
         if (period === 'PM' && h < 12) h += 12;
         if (period === 'AM' && h === 12) h = 0;
+        h = inferCollegeHour(h, period);
         if (h > 23) return null;
 
         const d = new Date();
@@ -104,6 +111,9 @@ export const parseLectureTime = (timeStr) => {
         const start = parseTime(parts[0], startPeriod);
         const end = parseTime(parts[1], endPeriod);
         if (!start || !end) return null;
+        if (end.getTime() <= start.getTime()) {
+            end.setHours(end.getHours() + 12);
+        }
 
         return {
             start,

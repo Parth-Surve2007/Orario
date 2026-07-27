@@ -11,8 +11,10 @@ import InstallPrompt from './components/InstallPrompt';
 import { applyTheme, DEFAULT_THEME, getStoredThemeSnapshot } from './utils/themes';
 import { useSmartAttendance } from './hooks/useSmartAttendance';
 import { useReviewAttendanceReminder } from './hooks/useReviewAttendanceReminder';
+import { useDailyReminder } from './hooks/useDailyReminder';
 import { loadAppState, saveAppState } from './utils/db';
 import { getLocalDateKey } from './utils/geofence';
+import { DEFAULT_DAILY_REMINDER_TIME } from './services/ReminderService';
 
 export const AppContext = React.createContext({});
 
@@ -80,6 +82,10 @@ export default function App() {
     selectedClass: '',
     classes: [],
     tasks: [],
+    dailyReminder: {
+      enabled: false,
+      time: DEFAULT_DAILY_REMINDER_TIME
+    },
     smartAttendance: {
       enabled: false,
       collegeLocation: { lat: null, lng: null },
@@ -194,6 +200,11 @@ export default function App() {
   useEffect(() => {
     const openFromUrl = () => {
       const params = new URLSearchParams(window.location.search);
+      if (params.get('view') === 'timetable') {
+        setCurrentView('timetable');
+        window.history.replaceState(null, '', window.location.pathname);
+        return;
+      }
       if (params.get('view') === 'dashboard' && params.get('focus') === 'attendanceReview') {
         openAttendanceReview();
         window.history.replaceState(null, '', window.location.pathname);
@@ -203,13 +214,17 @@ export default function App() {
     openFromUrl();
     const handleServiceWorkerMessage = (event) => {
       if (event.data?.type === 'OPEN_ATTENDANCE_REVIEW') openAttendanceReview();
+      if (event.data?.type === 'OPEN_TIMETABLE') setCurrentView('timetable');
     };
+    const openTimetable = () => setCurrentView('timetable');
 
     window.addEventListener('orario-review-attendance-open', openAttendanceReview);
+    window.addEventListener('orario-open-timetable', openTimetable);
     navigator.serviceWorker?.addEventListener?.('message', handleServiceWorkerMessage);
 
     return () => {
       window.removeEventListener('orario-review-attendance-open', openAttendanceReview);
+      window.removeEventListener('orario-open-timetable', openTimetable);
       navigator.serviceWorker?.removeEventListener?.('message', handleServiceWorkerMessage);
     };
   }, []);
@@ -230,6 +245,7 @@ export default function App() {
 
   useSmartAttendance(state, updateState);
   useReviewAttendanceReminder(state);
+  useDailyReminder(state);
 
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },

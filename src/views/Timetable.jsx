@@ -145,11 +145,11 @@ export default function Timetable({ onNavigate }) {
                   >
                     <div className="w-2 h-10 bg-secondary shrink-0 mt-1" />
                     <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="text-label-sm text-secondary uppercase tracking-wider font-bold mb-1">{l.time}</div>
                       <div className="text-body-md font-medium text-on-surface leading-5 whitespace-normal break-words">{l.name}</div>
                       {teacher && (
                         <div className="text-label-sm text-on-surface-variant font-medium mt-1 leading-4 whitespace-normal break-words">{teacher}</div>
                       )}
+                      <div className="text-label-sm text-secondary uppercase tracking-wider font-bold mt-1">{l.time}</div>
                     </div>
                   </motion.div>
                 );

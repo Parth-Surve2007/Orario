@@ -11,7 +11,7 @@ import {
   saveExcelSheets,
 } from '../utils/db';
 import { Moon, Sun, Bell, Calendar, Save, Upload, Trash2, Plus, X, Check, MapPin, Locate, Download, FileUp, Clock } from 'lucide-react';
-import { DEFAULT_REVIEW_DELAY_MINUTES, REVIEW_REMINDER_DELAYS } from '../services/ReminderService';
+import { DEFAULT_DAILY_REMINDER_TIME, DEFAULT_REVIEW_DELAY_MINUTES, REVIEW_REMINDER_DELAYS } from '../services/ReminderService';
 
 const VESIT_LOCATION = { lat: 19.045701, lng: 72.889137 };
 const DEFAULT_SMART_RADIUS = 200;
@@ -232,6 +232,43 @@ export default function SettingsView() {
     setShowReminderSettings(true);
   };
 
+  const handleDailyReminderToggle = async () => {
+    const currentValue = Boolean(state.dailyReminder?.enabled);
+    if (currentValue) {
+      updateState({
+        dailyReminder: {
+          ...state.dailyReminder,
+          enabled: false,
+          time: state.dailyReminder?.time || DEFAULT_DAILY_REMINDER_TIME,
+        },
+      });
+      return;
+    }
+
+    const hasAccess = await requestNotificationAccess();
+    if (!hasAccess) {
+      showNotificationPermissionHelp();
+      return;
+    }
+
+    updateState({
+      dailyReminder: {
+        ...state.dailyReminder,
+        enabled: true,
+        time: state.dailyReminder?.time || DEFAULT_DAILY_REMINDER_TIME,
+      },
+    });
+  };
+
+  const handleDailyReminderTimeChange = (event) => {
+    updateState({
+      dailyReminder: {
+        ...state.dailyReminder,
+        time: event.target.value || DEFAULT_DAILY_REMINDER_TIME,
+      },
+    });
+  };
+
   const openReminderSettings = () => {
     setReminderDraft(state.smartAttendance?.reviewReminderDelayMinutes ?? DEFAULT_REVIEW_DELAY_MINUTES);
     setShowReminderSettings(true);
@@ -283,6 +320,33 @@ export default function SettingsView() {
           >
             {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
+        </div>
+
+        <div className="flex flex-col gap-3 py-2 border-b border-outline/10 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col">
+            <span className="text-body-md text-on-surface font-bold">Daily Reminder</span>
+            <span className="text-label-sm text-on-surface-variant">
+              {state.dailyReminder?.enabled
+                ? `On at ${state.dailyReminder?.time || DEFAULT_DAILY_REMINDER_TIME}`
+                : 'Off'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="time"
+              className="voxel-input w-32 text-label-sm font-bold"
+              value={state.dailyReminder?.time || DEFAULT_DAILY_REMINDER_TIME}
+              onChange={handleDailyReminderTimeChange}
+              aria-label="Daily reminder time"
+            />
+            <button
+              className={`voxel-btn-secondary text-label-sm flex items-center gap-2 font-bold ${state.dailyReminder?.enabled ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container text-on-surface'}`}
+              onClick={handleDailyReminderToggle}
+            >
+              <Bell size={16} />
+              {state.dailyReminder?.enabled ? 'Enabled' : 'Enable'}
+            </button>
+          </div>
         </div>
 
         {/* ── Colour Theme Picker ── */}

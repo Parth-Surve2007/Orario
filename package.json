@@ -8,8 +8,16 @@
     "preview": "vite preview"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Parth Surve",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Parth-Surve2007/Orario.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Parth-Surve2007/Orario/issues"
+  },
+  "homepage": "https://github.com/Parth-Surve2007/Orario#readme",
   "type": "commonjs",
   "dependencies": {
     "@tsparticles/react": "^4.3.1",

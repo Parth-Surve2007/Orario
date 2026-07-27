@@ -2,11 +2,15 @@ import { getLocalDateKey, parseLectureTime } from '../utils/geofence';
 import { lectureMatchesSelection } from '../utils/lectureMatching';
 
 const REVIEW_REMINDER_STORAGE_KEY = 'orario_review_attendance_reminders';
+const DAILY_REMINDER_STORAGE_KEY = 'orario_daily_reminders';
 const REVIEW_REMINDER_URL = '/?view=dashboard&focus=attendanceReview';
 const DEFAULT_REVIEW_DELAY_MINUTES = 30;
+const DEFAULT_DAILY_REMINDER_TIME = '08:20';
 
 let scheduledTimeoutId = null;
 let scheduledSignature = '';
+let scheduledDailyTimeoutId = null;
+let scheduledDailySignature = '';
 
 function readReminderLog() {
     try {
@@ -19,6 +23,19 @@ function readReminderLog() {
 
 function writeReminderLog(log) {
     localStorage.setItem(REVIEW_REMINDER_STORAGE_KEY, JSON.stringify(log));
+}
+
+function readDailyReminderLog() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(DAILY_REMINDER_STORAGE_KEY) || '{}');
+        return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeDailyReminderLog(log) {
+    localStorage.setItem(DAILY_REMINDER_STORAGE_KEY, JSON.stringify(log));
 }
 
 function getDayKey(date = new Date()) {
@@ -60,6 +77,14 @@ export function cancelReviewReminder() {
     }
     scheduledTimeoutId = null;
     scheduledSignature = '';
+}
+
+export function cancelDailyReminder() {
+    if (scheduledDailyTimeoutId !== null) {
+        window.clearTimeout(scheduledDailyTimeoutId);
+    }
+    scheduledDailyTimeoutId = null;
+    scheduledDailySignature = '';
 }
 
 export function calculateReviewReminder(state, date = new Date()) {
@@ -156,10 +181,113 @@ export function scheduleReviewReminder(state) {
     return reminder;
 }
 
+function getDailyReminderTime(state) {
+    const value = String(state.dailyReminder?.time || DEFAULT_DAILY_REMINDER_TIME).trim();
+    return /^\d{2}:\d{2}$/.test(value) ? value : DEFAULT_DAILY_REMINDER_TIME;
+}
+
+export function calculateDailyReminder(state, date = new Date()) {
+    const dailyReminder = state.dailyReminder || {};
+    if (!dailyReminder.enabled) return null;
+
+    const holidays = Array.isArray(state.holidays) ? state.holidays : [];
+
+    const [hours, minutes] = getDailyReminderTime(state).split(':').map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+
+    let notifyAt = null;
+    let reminderDateKey = '';
+    for (let dayOffset = 0; dayOffset < 8; dayOffset += 1) {
+        const candidate = new Date(date);
+        candidate.setDate(candidate.getDate() + dayOffset);
+        candidate.setHours(hours, minutes, 0, 0);
+
+        const candidateDateKey = getLocalDateKey(candidate);
+        if (holidays.includes(candidateDateKey)) continue;
+        if (candidate.getTime() <= date.getTime()) continue;
+
+        notifyAt = candidate;
+        reminderDateKey = candidateDateKey;
+        break;
+    }
+
+    if (!notifyAt || !reminderDateKey) return null;
+
+    const signature = [
+        reminderDateKey,
+        state.selectedClass || '',
+        state.selectedBatch || '',
+        getDailyReminderTime(state),
+    ].join('::');
+
+    return {
+        dateKey: reminderDateKey,
+        notifyAt,
+        time: getDailyReminderTime(state),
+        signature,
+    };
+}
+
+async function showDailyNotification(reminder) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    const options = {
+        body: 'Your timetable is ready for today. Check your classes before the day starts.',
+        tag: `orario-daily-reminder-${reminder.dateKey}`,
+        renotify: false,
+        requireInteraction: false,
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-192.png',
+        data: { url: '/?view=timetable', dateKey: reminder.dateKey },
+    };
+
+    if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration?.showNotification) {
+            await registration.showNotification('Today\'s Timetable', options);
+            return;
+        }
+    }
+
+    const notification = new Notification('Today\'s Timetable', options);
+    notification.onclick = () => {
+        window.focus();
+        window.history.replaceState(null, '', '/?view=timetable');
+        window.dispatchEvent(new CustomEvent('orario-open-timetable'));
+        notification.close();
+    };
+}
+
+export function scheduleDailyReminder(state) {
+    cancelDailyReminder();
+
+    const reminder = calculateDailyReminder(state);
+    if (!reminder) return null;
+
+    const reminderLog = readDailyReminderLog();
+    if (reminderLog[reminder.dateKey] === reminder.signature) return null;
+
+    const msUntilNotification = reminder.notifyAt.getTime() - Date.now();
+    scheduledDailySignature = reminder.signature;
+
+    scheduledDailyTimeoutId = window.setTimeout(async () => {
+        const latestReminder = calculateDailyReminder(state);
+        if (!latestReminder || latestReminder.signature !== scheduledDailySignature) return;
+
+        await showDailyNotification(latestReminder);
+        const latestLog = readDailyReminderLog();
+        latestLog[latestReminder.dateKey] = latestReminder.signature;
+        writeDailyReminderLog(latestLog);
+        cancelDailyReminder();
+    }, msUntilNotification);
+
+    return reminder;
+}
+
 export const REVIEW_REMINDER_DELAYS = [
     { label: '15 minutes', value: 15 },
     { label: '30 minutes', value: 30 },
     { label: '1 hour', value: 60 },
 ];
 
-export { DEFAULT_REVIEW_DELAY_MINUTES, REVIEW_REMINDER_URL };
+export { DEFAULT_REVIEW_DELAY_MINUTES, DEFAULT_DAILY_REMINDER_TIME, REVIEW_REMINDER_URL };

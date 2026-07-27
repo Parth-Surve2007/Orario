@@ -8,7 +8,7 @@ export const normalizeBatch = (value) => {
     const text = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (!text) return '';
     if (['B1', 'BATCH1', 'BATCHI', 'I', '1'].includes(text)) return 'B1';
-    if (['B2', 'BATCH2', 'BATCHII', 'II', '2'].includes(text)) return 'B2';
+    if (['B2', 'BATCH2', 'BATCHII', 'II', '2', '1I', 'B1I', 'BATCH1I'].includes(text)) return 'B2';
     if (['B3', 'BATCH3', 'BATCHIII', 'III', '3'].includes(text)) return 'B3';
     return text;
 };
@@ -17,7 +17,7 @@ export const getLectureBatches = (lectureName) => {
     const text = String(lectureName || '').toUpperCase();
     const batches = new Set();
     const patterns = [
-        /\bBATCH\s*[-:]?\s*(I{1,3}|[1-3])\b/g,
+        /\bBATCH\s*[-:]?\s*(1I|I{1,3}|[1-3])\b/g,
         /\bB\s*[-:]?\s*([1-3])\b/g,
     ];
 

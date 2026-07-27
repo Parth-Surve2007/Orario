@@ -1,7 +1,8 @@
 import React, { useContext, useRef, useState } from 'react';
 import { AppContext } from '../App';
 import LocationPicker from '../components/LocationPicker';
-import { processExcelFile } from '../utils/excelParser';
+import ExcelPreviewModal from '../components/ExcelPreviewModal';
+import { processExcelFile, previewExcelFile } from '../utils/excelParser';
 import { THEMES } from '../utils/themes';
 import {
   clearAllData,
@@ -26,6 +27,8 @@ export default function SettingsView() {
   const [showReminderSettings, setShowReminderSettings] = useState(false);
   const [reminderDraft, setReminderDraft] = useState(state.smartAttendance?.reviewReminderDelayMinutes ?? DEFAULT_REVIEW_DELAY_MINUTES);
   const [dialog, setDialog] = useState(null);
+  const [excelPreview, setExcelPreview] = useState(null);
+  const [pendingFile, setPendingFile] = useState(null);
   const selectedColorTheme = THEMES[colorTheme] || Object.values(THEMES)[0];
 
   const closeDialog = () => {
@@ -47,26 +50,47 @@ export default function SettingsView() {
     if (!file) return;
 
     try {
-      const result = await processExcelFile(file, state.classes);
-
-      updateState({
-        sheetNames: result.sheetNames,
-        selectedSheet: result.selectedSheet,
-        selectedAllocSheet: result.selectedAllocSheet,
-        subjectMappings: result.subjectMappings,
-        timetableSchedule: result.timetableSchedule,
-        classes: result.classes,
-        lastUploadedFile: result.fileName,
-        rawTimetable: result.rawTimetable
-      });
-
-      await saveExcelSheets(result.allSheetsJSON);
-
-      showNotice('Upload Complete', `Detected ${result.classes.length} classes.`);
+      const result = await previewExcelFile(file, state.classes);
+      setExcelPreview(result);
+      setPendingFile(file);
     } catch (err) {
       console.error(err);
       showNotice('Upload Failed', 'Error parsing Excel file.');
     }
+  };
+
+  const confirmExcelImport = async () => {
+    if (!excelPreview || !pendingFile) return;
+
+    try {
+      updateState({
+        sheetNames: excelPreview.sheetNames,
+        selectedSheet: excelPreview.selectedSheet,
+        selectedAllocSheet: excelPreview.selectedAllocSheet,
+        subjectMappings: excelPreview.subjectMappings,
+        timetableSchedule: excelPreview.timetableSchedule,
+        classes: excelPreview.classes,
+        lastUploadedFile: excelPreview.fileName,
+        rawTimetable: excelPreview.rawTimetable
+      });
+
+      await saveExcelSheets(excelPreview.allSheetsJSON);
+
+      setExcelPreview(null);
+      setPendingFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
+      showNotice('Upload Complete', `Detected ${excelPreview.classes.length} classes.`);
+    } catch (err) {
+      console.error(err);
+      showNotice('Upload Failed', 'Error saving Excel file.');
+    }
+  };
+
+  const cancelExcelImport = () => {
+    setExcelPreview(null);
+    setPendingFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleClassChange = (e) => {
@@ -407,6 +431,47 @@ export default function SettingsView() {
 
         {state.smartAttendance?.enabled && (
           <div className="flex flex-col gap-4 p-4 border-2 border-outline bg-surface-container-lowest shadow-[3px_3px_0px_var(--color-outline)]">
+            {/* GPS Status Indicator */}
+            <div className="flex flex-col gap-2 p-3 border-2 border-outline bg-surface-container">
+              <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">GPS Status</label>
+              {(() => {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const checks = state.smartAttendance?.lastChecks || {};
+                const todayChecks = Object.values(checks).filter(c => c.key?.startsWith(todayStr));
+                const mostRecentCheck = todayChecks[todayChecks.length - 1];
+                
+                if (!mostRecentCheck || (!mostRecentCheck.startChecked && !mostRecentCheck.endChecked)) {
+                  return (
+                    <span className="text-xs text-on-surface-variant">
+                      Waiting for scheduled lecture...
+                    </span>
+                  );
+                }
+                
+                const status = mostRecentCheck.entryStatus || mostRecentCheck.exitStatus;
+                const confidence = mostRecentCheck.entryConfidence || mostRecentCheck.exitConfidence;
+                
+                const getStatusColor = (conf) => {
+                  switch (conf) {
+                    case 'HIGH': return 'text-secondary';
+                    case 'MEDIUM': return 'text-primary';
+                    case 'LOW': return 'text-orange-500';
+                    case 'NONE': return 'text-error';
+                    default: return 'text-on-surface-variant';
+                  }
+                };
+                
+                return (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-on-surface">{status}</span>
+                    <span className={`text-[10px] font-bold uppercase ${getStatusColor(confidence)}`}>
+                      Confidence: {confidence}
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
+
             <div className="flex flex-col gap-2">
               <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">College Location</label>
               {state.smartAttendance?.collegeLocation?.lat ? (
@@ -766,7 +831,7 @@ export default function SettingsView() {
         </div>
 
         {/* Add holiday row */}
-        <div className="flex gap-2 items-end">
+        <div className="flex gap-2 items-center">
           <div className="flex-1 min-w-0 flex flex-col gap-2">
             <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Add Holiday</label>
             <input
@@ -776,7 +841,7 @@ export default function SettingsView() {
             />
           </div>
           <button
-            className="voxel-btn-primary flex items-center gap-1 font-bold shrink-0 self-end"
+            className="voxel-btn-primary flex items-center gap-1 font-bold shrink-0"
             onClick={addHoliday}
           >
             <Plus size={16} /> Add
@@ -847,6 +912,15 @@ export default function SettingsView() {
           <Trash2 size={18} /> Reset All Data
         </button>
       </section>
+
+      {/* Excel Preview Modal */}
+      {excelPreview && (
+        <ExcelPreviewModal
+          previewData={excelPreview}
+          onConfirm={confirmExcelImport}
+          onCancel={cancelExcelImport}
+        />
+      )}
     </div>
   );
 }

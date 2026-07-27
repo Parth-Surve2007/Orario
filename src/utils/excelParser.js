@@ -2,6 +2,49 @@ import * as XLSX from 'xlsx';
 
 // ─── Public entry point ───────────────────────────────────────────────────────
 
+/**
+ * Preview Excel file without saving. Returns parsed data for user confirmation.
+ */
+export const previewExcelFile = async (file, currentClasses) => {
+  const result = await processExcelFile(file, currentClasses);
+  
+  // Calculate preview statistics
+  const daysDetected = Object.keys(result.timetableSchedule || {}).sort();
+  const totalLectures = Object.values(result.timetableSchedule || {}).reduce((sum, dayLectures) => sum + dayLectures.length, 0);
+  const subjects = new Set();
+  const warnings = [...(result.parserWarnings || [])];
+  
+  // Extract unique subjects and detect potential issues
+  Object.values(result.timetableSchedule || {}).forEach(dayLectures => {
+    dayLectures.forEach(lecture => {
+      const subjectName = lecture.name.split('(')[0].trim();
+      subjects.add(subjectName);
+    });
+  });
+  
+  // Add heuristic warnings
+  if (result.classes.length === 0) {
+    warnings.push('No classes detected in timetable');
+  }
+  if (totalLectures === 0) {
+    warnings.push('No lectures detected in timetable');
+  }
+  if (daysDetected.length < 5) {
+    warnings.push(`Only ${daysDetected.length} days detected (expected 5-6)`);
+  }
+  
+  return {
+    ...result,
+    preview: {
+      daysDetected,
+      totalLectures,
+      subjects: Array.from(subjects).sort(),
+      warnings,
+      fileName: result.fileName
+    }
+  };
+};
+
 export const processExcelFile = async (file, currentClasses) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -15,6 +58,9 @@ export const processExcelFile = async (file, currentClasses) => {
         sheetNames.forEach(n => {
           allSheetsJSON[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1 });
         });
+
+        // Parser warnings collection
+        const parserWarnings = [];
 
         // ── Sheet 1: Faculty Initials (new format only) ───────────────────────
         const facultySheetName = sheetNames.find(n =>
@@ -37,11 +83,17 @@ export const processExcelFile = async (file, currentClasses) => {
           const upper = n.toUpperCase();
           return upper.includes('FINAL') && ttKeywords.some(k => upper.includes(k));
         });
+        
         const timetableSheetName =
           finalTimetableSheetName ||
           sheetNames.find(n => ttKeywords.some(k => n.toUpperCase().includes(k))) ||
           sheetNames.find(n => containsDayRow(allSheetsJSON[n])) ||
           sheetNames[0];
+
+        // Warning if using fallback sheet detection
+        if (!finalTimetableSheetName && !sheetNames.find(n => ttKeywords.some(k => n.toUpperCase().includes(k)))) {
+          parserWarnings.push('Timetable sheet not found by name, using fallback detection');
+        }
 
         const activeData = allSheetsJSON[timetableSheetName];
 
@@ -49,6 +101,11 @@ export const processExcelFile = async (file, currentClasses) => {
         // New Master TT: has "TIME/CLASS" (or "TIME / CLASS") cells
         // Old FE format: class names appear in rows below day headers (no TIME/CLASS)
         const isNewFormat = detectNewFormat(activeData);
+
+        // Warning if format detection is uncertain
+        if (!activeData || activeData.length === 0) {
+          parserWarnings.push('Timetable sheet appears to be empty');
+        }
 
         let parsedTimetable;
         if (isNewFormat) {
@@ -85,6 +142,7 @@ export const processExcelFile = async (file, currentClasses) => {
           rawTimetable: activeData,
           allSheetsJSON,
           teacherMap,
+          parserWarnings,
         });
       } catch (e) {
         reject(e);

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { getCurrentLocation, getLocalDateKey, isInsideCampus, parseLectureTime } from '../utils/geofence';
+import { getCurrentLocationWithConfidence, getLocalDateKey, isInsideCampus, parseLectureTime } from '../utils/geofence';
 import { lectureMatchesSelection } from '../utils/lectureMatching';
 
 export function useSmartAttendance(state, updateState) {
@@ -39,50 +39,72 @@ export function useSmartAttendance(state, updateState) {
             for (const l of lectures) {
                 const times = parseLectureTime(l.time);
                 if (!times) continue;
-                
+
                 const now = new Date();
                 const nowTime = now.getTime();
                 const startTime = times.start.getTime();
                 const endTime = times.end.getTime();
-                
+
                 // 5 minutes in milliseconds
                 const FIVE_MIN = 5 * 60 * 1000;
-                
+
                 const key = `${todayStr}_${getLectureKey(l)}`;
-                const checks = updatedChecks[key] || { startChecked: false, endChecked: false, entryPassed: false, exitPassed: false };
-                
+                const checks = updatedChecks[key] || { 
+                    startChecked: false, 
+                    endChecked: false, 
+                    entryPassed: false, 
+                    exitPassed: false,
+                    entryConfidence: 'NONE',
+                    exitConfidence: 'NONE',
+                    entryStatus: '',
+                    exitStatus: ''
+                };
+
                 let checkedSomething = false;
-                
+
                 // Check Start
                 if (!checks.startChecked && Math.abs(nowTime - startTime) <= FIVE_MIN) {
-                    const loc = await getCurrentLocation();
-                    checks.entryPassed = isInsideCampus(loc, currentState.smartAttendance.collegeLocation, currentState.smartAttendance.radius);
+                    const result = await getCurrentLocationWithConfidence();
+                    checks.entryPassed = result.location ? isInsideCampus(result.location, currentState.smartAttendance.collegeLocation, currentState.smartAttendance.radius) : false;
+                    checks.entryConfidence = result.confidence;
+                    checks.entryStatus = result.status;
                     checks.startChecked = true;
                     checkedSomething = true;
                 }
-                
+
                 // Check End
                 if (!checks.endChecked && Math.abs(nowTime - endTime) <= FIVE_MIN) {
-                    const loc = await getCurrentLocation();
-                    checks.exitPassed = isInsideCampus(loc, currentState.smartAttendance.collegeLocation, currentState.smartAttendance.radius);
+                    const result = await getCurrentLocationWithConfidence();
+                    checks.exitPassed = result.location ? isInsideCampus(result.location, currentState.smartAttendance.collegeLocation, currentState.smartAttendance.radius) : false;
+                    checks.exitConfidence = result.confidence;
+                    checks.exitStatus = result.status;
                     checks.endChecked = true;
                     checkedSomething = true;
                 }
-                
+
                 if (checkedSomething) {
                     updatedChecks[key] = checks;
                     needsUpdate = true;
-                    
+
                     // Decide attendance
                     if (checks.startChecked && checks.endChecked) {
                         const lectKey = getLectureKey(l);
                         // Do not overwrite manual markings (if already marked present or absent manually)
                         if (!updatedDayAttendance[lectKey]) {
-                            if (checks.entryPassed && checks.exitPassed) {
+                            // Only mark present if both checks have HIGH or MEDIUM confidence
+                            const entryHasConfidence = checks.entryConfidence === 'HIGH' || checks.entryConfidence === 'MEDIUM';
+                            const exitHasConfidence = checks.exitConfidence === 'HIGH' || checks.exitConfidence === 'MEDIUM';
+
+                            if (checks.entryPassed && checks.exitPassed && entryHasConfidence && exitHasConfidence) {
                                 updatedDayAttendance[lectKey] = 'present';
+                            } else if (checks.entryPassed && checks.exitPassed) {
+                                // Inside campus but low confidence - needs review
+                                updatedDayAttendance[lectKey] = 'needs-review';
                             } else if (checks.entryPassed || checks.exitPassed) {
+                                // Mixed results - needs review
                                 updatedDayAttendance[lectKey] = 'needs-review';
                             } else {
+                                // Both outside - absent
                                 updatedDayAttendance[lectKey] = 'absent';
                             }
                         }

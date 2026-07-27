@@ -309,7 +309,7 @@ export default function App() {
       </header>
 
       {/* Main Content Area */}
-      <main className="screen-bottom-space relative z-10 flex-grow pt-4 px-gutter md:px-container-padding max-w-7xl mx-auto w-full overflow-hidden">
+      <main className="screen-bottom-space relative z-10 flex-grow pt-4 px-gutter md:px-container-padding max-w-7xl mx-auto w-full overflow-y-auto">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentView}

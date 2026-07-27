@@ -1,3 +1,13 @@
+// GPS Confidence Configuration
+const GPS_CONFIG = {
+    MAX_ACCURACY_METERS: 50,        // Reject readings worse than 50m
+    HIGH_ACCURACY_METERS: 20,       // High confidence threshold
+    MAX_READINGS: 3,                // Take up to 3 readings
+    READING_DELAY_MS: 2000,         // Delay between readings
+    TOTAL_TIMEOUT_MS: 15000,        // Total time for all readings
+    CONSISTENCY_THRESHOLD_METERS: 20, // Readings must be within 20m of each other (accounts for natural GPS jitter)
+};
+
 /**
  * Gets the current GPS location using HTML5 Geolocation API.
  * This works in the browser/PWA using the HTML5 Geolocation API.
@@ -29,6 +39,147 @@ export const getCurrentLocation = () => {
             }
         );
     });
+};
+
+/**
+ * Gets a single GPS reading with accuracy information.
+ * @returns {Promise<{lat: number, lng: number, accuracy: number} | null>}
+ */
+const getSingleReading = () => {
+    return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+            resolve(null);
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                resolve({
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                    accuracy: position.coords.accuracy || 999999 // Fallback if accuracy unavailable
+                });
+            },
+            (error) => {
+                console.error("Error getting location:", error);
+                resolve(null);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    });
+};
+
+/**
+ * Gets GPS location with confidence scoring using multiple readings.
+ * Implements early exit when HIGH confidence is achieved.
+ * @returns {Promise<{location: {lat: number, lng: number} | null, confidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE', status: string}>}
+ */
+export const getCurrentLocationWithConfidence = async () => {
+    const readings = [];
+    const startTime = Date.now();
+
+    // Take multiple readings with early exit
+    for (let i = 0; i < GPS_CONFIG.MAX_READINGS; i++) {
+        // Check timeout
+        if (Date.now() - startTime > GPS_CONFIG.TOTAL_TIMEOUT_MS) {
+            break;
+        }
+
+        const reading = await getSingleReading();
+        if (reading) {
+            readings.push(reading);
+
+            // Early exit: if we have 2+ readings with HIGH accuracy and consistency, stop
+            if (readings.length >= 2) {
+                const validReadings = readings.filter(r => r.accuracy <= GPS_CONFIG.MAX_ACCURACY_METERS);
+                if (validReadings.length >= 2) {
+                    const avgAccuracy = validReadings.reduce((sum, r) => sum + r.accuracy, 0) / validReadings.length;
+                    if (avgAccuracy <= GPS_CONFIG.HIGH_ACCURACY_METERS) {
+                        // Check consistency
+                        const isConsistent = validReadings.every(r1 => 
+                            validReadings.every(r2 => 
+                                calculateDistance(r1.lat, r1.lng, r2.lat, r2.lng) <= GPS_CONFIG.CONSISTENCY_THRESHOLD_METERS
+                            )
+                        );
+                        if (isConsistent) {
+                            // Early exit with HIGH confidence
+                            const avgLat = validReadings.reduce((sum, r) => sum + r.lat, 0) / validReadings.length;
+                            const avgLng = validReadings.reduce((sum, r) => sum + r.lng, 0) / validReadings.length;
+                            return { 
+                                location: { lat: avgLat, lng: avgLng }, 
+                                confidence: 'HIGH', 
+                                status: 'Location verified' 
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        // Delay between readings (except after last one)
+        if (i < GPS_CONFIG.MAX_READINGS - 1) {
+            await new Promise(resolve => setTimeout(resolve, GPS_CONFIG.READING_DELAY_MS));
+        }
+    }
+
+    // Filter by accuracy
+    const validReadings = readings.filter(r => r.accuracy <= GPS_CONFIG.MAX_ACCURACY_METERS);
+
+    if (validReadings.length === 0) {
+        if (readings.length === 0) {
+            return { location: null, confidence: 'NONE', status: 'GPS failed' };
+        }
+        return { location: null, confidence: 'NONE', status: 'GPS inaccurate' };
+    }
+
+    // Check consistency - all valid readings should be close to each other
+    const isConsistent = validReadings.every(r1 => 
+        validReadings.every(r2 => 
+            calculateDistance(r1.lat, r1.lng, r2.lat, r2.lng) <= GPS_CONFIG.CONSISTENCY_THRESHOLD_METERS
+        )
+    );
+
+    if (!isConsistent) {
+        // Inconsistent readings - use the most accurate one but mark as low confidence
+        const bestReading = validReadings.reduce((best, current) => 
+            current.accuracy < best.accuracy ? current : best
+        );
+        return { 
+            location: { lat: bestReading.lat, lng: bestReading.lng }, 
+            confidence: 'LOW', 
+            status: 'GPS inconsistent' 
+        };
+    }
+
+    // Calculate average of consistent readings
+    const avgLat = validReadings.reduce((sum, r) => sum + r.lat, 0) / validReadings.length;
+    const avgLng = validReadings.reduce((sum, r) => sum + r.lng, 0) / validReadings.length;
+    const avgAccuracy = validReadings.reduce((sum, r) => sum + r.accuracy, 0) / validReadings.length;
+
+    // Determine confidence level
+    if (validReadings.length >= 2 && avgAccuracy <= GPS_CONFIG.HIGH_ACCURACY_METERS) {
+        return { 
+            location: { lat: avgLat, lng: avgLng }, 
+            confidence: 'HIGH', 
+            status: 'Location verified' 
+        };
+    } else if (validReadings.length >= 2) {
+        return { 
+            location: { lat: avgLat, lng: avgLng }, 
+            confidence: 'MEDIUM', 
+            status: 'Location verified' 
+        };
+    } else {
+        return { 
+            location: { lat: avgLat, lng: avgLng }, 
+            confidence: 'LOW', 
+            status: 'GPS limited accuracy' 
+        };
+    }
 };
 
 /**

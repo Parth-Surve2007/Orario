@@ -119,6 +119,11 @@ The app uses a playful brutalist visual style with strong borders, bold color, a
 
 Orario stores attendance, timetable data, backups, theme preferences, and Smart Attendance settings locally in the browser. Location checks run on-device and are used only for attendance timing logic.
 
+## Contributing
+
+Contributions are welcome! If you find a bug, have a feature suggestion, or would like to improve the project, feel free to open an issue or submit a pull request.
+Please keep changes focused, well-documented, and consistent with the existing code style.
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0. See the LICENSE file for details.

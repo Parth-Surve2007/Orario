@@ -8,13 +8,10 @@ import Stats from './views/Stats';
 import SettingsView from './views/SettingsView';
 import ParticleBackground from './components/ParticleBackground';
 import InstallPrompt from './components/InstallPrompt';
+import AttendanceReminderModal from './components/AttendanceReminderModal';
 import { applyTheme, DEFAULT_THEME, getStoredThemeSnapshot } from './utils/themes';
-import { useSmartAttendance } from './hooks/useSmartAttendance';
-import { useReviewAttendanceReminder } from './hooks/useReviewAttendanceReminder';
-import { useDailyReminder } from './hooks/useDailyReminder';
+import { useAttendanceReminder } from './hooks/useAttendanceReminder';
 import { loadAppState, saveAppState } from './utils/db';
-import { getLocalDateKey } from './utils/geofence';
-import { DEFAULT_DAILY_REMINDER_TIME } from './services/ReminderService';
 
 export const AppContext = React.createContext({});
 
@@ -27,7 +24,7 @@ function isStandaloneApp() {
 const TOUR_STEPS = [
   {
     title: 'Welcome to Orario',
-    body: 'This quick tour will help you set up dates, upload your timetable, choose your class, enable GPS, and mark attendance.',
+    body: 'This quick tour will help you set up dates, upload your timetable, choose your class, and mark attendance.',
     view: 'dashboard',
   },
   {
@@ -49,13 +46,7 @@ const TOUR_STEPS = [
     targetId: 'tour-class-select',
   },
   {
-    title: 'Step 4: GPS Settings',
-    body: 'Enable Smart Attendance here. Allow location permission, then choose VESIT or set your college location manually on the map.',
-    view: 'settings',
-    targetId: 'tour-gps-settings',
-  },
-  {
-    title: 'Step 5: Mark Attendance',
+    title: 'Step 4: Mark Attendance',
     body: 'Back on Dashboard, use the tick or cross buttons for each lecture. You can also mark all present, all absent, or set a holiday.',
     view: 'dashboard',
     targetId: 'tour-mark-attendance',
@@ -82,17 +73,8 @@ export default function App() {
     selectedClass: '',
     classes: [],
     tasks: [],
-    dailyReminder: {
-      enabled: false,
-      time: DEFAULT_DAILY_REMINDER_TIME
-    },
-    smartAttendance: {
-      enabled: false,
-      collegeLocation: { lat: null, lng: null },
-      radius: 200,
-      lastChecks: {},
-      reviewReminderEnabled: true,
-      reviewReminderDelayMinutes: 30
+    attendanceReminder: {
+      enabled: false
     }
   });
 
@@ -189,13 +171,6 @@ export default function App() {
     setState(prev => ({ ...prev, ...updates }));
   };
 
-  const openAttendanceReview = () => {
-    setCurrentView('dashboard');
-    setState((prev) => ({
-      ...prev,
-      attendanceReviewFocusDate: getLocalDateKey(),
-    }));
-  };
 
   useEffect(() => {
     const openFromUrl = () => {
@@ -205,25 +180,18 @@ export default function App() {
         window.history.replaceState(null, '', window.location.pathname);
         return;
       }
-      if (params.get('view') === 'dashboard' && params.get('focus') === 'attendanceReview') {
-        openAttendanceReview();
-        window.history.replaceState(null, '', window.location.pathname);
-      }
     };
 
     openFromUrl();
     const handleServiceWorkerMessage = (event) => {
-      if (event.data?.type === 'OPEN_ATTENDANCE_REVIEW') openAttendanceReview();
       if (event.data?.type === 'OPEN_TIMETABLE') setCurrentView('timetable');
     };
     const openTimetable = () => setCurrentView('timetable');
 
-    window.addEventListener('orario-review-attendance-open', openAttendanceReview);
     window.addEventListener('orario-open-timetable', openTimetable);
     navigator.serviceWorker?.addEventListener?.('message', handleServiceWorkerMessage);
 
     return () => {
-      window.removeEventListener('orario-review-attendance-open', openAttendanceReview);
       window.removeEventListener('orario-open-timetable', openTimetable);
       navigator.serviceWorker?.removeEventListener?.('message', handleServiceWorkerMessage);
     };
@@ -243,9 +211,7 @@ export default function App() {
     setTourStep((step) => step + 1);
   };
 
-  useSmartAttendance(state, updateState);
-  useReviewAttendanceReminder(state);
-  useDailyReminder(state);
+  const { showReminder, pendingLectures, dismissReminder, goToDashboard } = useAttendanceReminder(state, updateState);
 
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -371,6 +337,16 @@ export default function App() {
       )}
 
       <InstallPrompt />
+
+      {showReminder && (
+        <AttendanceReminderModal
+          pendingLectures={pendingLectures}
+          onDismiss={dismissReminder}
+          onGoToDashboard={() => {
+            goToDashboard();
+          }}
+        />
+      )}
 
       {/* Bottom Nav */}
       <nav className="edge-bottom-nav glass-nav fixed bottom-0 left-0 w-full md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:w-[90%] md:max-w-md z-50">

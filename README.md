@@ -2,7 +2,7 @@
 
 Smart attendance tracking for college timetables.
 
-Orario is a lightweight PWA that reads Excel timetable files, helps students mark daily attendance, and optionally uses location checks for smarter attendance prompts. It is built for quick mobile use, with an installable web-app experience on Android, iOS, and desktop browsers.
+Orario is a lightweight PWA that reads Excel timetable files, helps students mark daily attendance, and provides intelligent reminders for forgotten attendance. It is built for quick mobile use, with an installable web-app experience on Android, iOS, and desktop browsers.
 
 ## Features
 
@@ -10,10 +10,14 @@ Orario is a lightweight PWA that reads Excel timetable files, helps students mar
 - Class and batch selection
 - Daily attendance marking
 - Subject-wise attendance statistics
-- Smart Attendance with browser geolocation
+- Attendance Reminder - reminds you when you haven't marked attendance
 - Local backup and restore
 - Installable PWA with offline support
 - Light/dark mode and color themes
+
+## Attendance Reminder
+
+Orario helps you remember to mark attendance whenever you open the app. When you launch Orario or switch back to it, the app automatically checks if any lectures have ended without attendance being marked and shows a friendly reminder. This feature works completely offline and requires no background services or location permissions.
 
 ## Browser Support
 
@@ -23,8 +27,6 @@ Orario is designed for modern mobile and desktop browsers. Install support depen
 - iOS: best when opened and installed from Safari
 - Desktop: Chrome, Edge, and other Chromium browsers provide the most complete PWA install flow
 
-Location-based features require browser location permission and may behave differently depending on device power saving, browser privacy settings, and operating system restrictions.
-
 ## Install On Android
 
 Chrome or Samsung Internet is recommended.
@@ -33,8 +35,6 @@ Chrome or Samsung Internet is recommended.
 2. Wait for the install prompt, then tap **Install**.
 3. If no prompt appears, open the browser menu and choose **Install app** or **Add to Home screen**.
 4. Launch Orario from your home screen or app drawer.
-
-For best results, allow location permission if you plan to use Smart Attendance.
 
 ## Install On iOS
 
@@ -57,7 +57,6 @@ iOS may cache app icons and PWA metadata. If the installed icon does not update 
 - Vite PWA / Workbox
 - Dexie / IndexedDB
 - SheetJS `xlsx`
-- Leaflet
 - Framer Motion
 - Lucide React
 
@@ -91,9 +90,9 @@ npm run preview
 
 ```text
 src/
-  components/        Reusable UI and install/location components
-  hooks/             Smart attendance behavior
-  utils/             Excel parsing, local database, themes, geofence helpers
+  components/        Reusable UI components
+  hooks/             Custom React hooks
+  utils/             Excel parsing, local database, themes
   views/             Dashboard, timetable, tasks, stats, settings
 
 public/icons/        PWA icons and app icon assets
@@ -117,7 +116,18 @@ The app uses a playful brutalist visual style with strong borders, bold color, a
 
 ## Privacy
 
-Orario stores attendance, timetable data, backups, theme preferences, and Smart Attendance settings locally in the browser. Location checks run on-device and are used only for attendance timing logic.
+Orario stores attendance, timetable data, backups, and theme preferences locally in the browser. All data remains on your device - no cloud sync, no analytics, no telemetry.
+
+## Planned Features
+
+The following features are planned for future releases but are not part of v1.0:
+
+- Smart Attendance (GPS-assisted automatic attendance)
+- Native Android enhancements
+- Local notification reminders
+- Background automation (native builds only)
+
+These features require native app capabilities or enhanced PWA APIs that are not yet reliably available across all platforms.
 
 ## Contributing
 

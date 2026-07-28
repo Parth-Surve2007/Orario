@@ -1,13 +1,13 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { AppContext } from '../App';
-import { Hand, Upload, School, Donut, Check, X, Sun, CheckCheck, XSquare, CalendarOff, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
-import { getLocalDateKey } from '../utils/geofence';
+import { Hand, Upload, School, Donut, Check, X, Sun, CheckCheck, XSquare, CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import { lectureMatchesSelection } from '../utils/lectureMatching';
 
 export default function Dashboard({ onNavigate }) {
     const { state, updateState } = useContext(AppContext);
 
     // Date navigation (today by default)
+    const getLocalDateKey = () => new Date().toISOString().split('T')[0];
     const todayStr = getLocalDateKey();
     const [viewDate, setViewDate] = useState(todayStr);
 
@@ -166,19 +166,6 @@ export default function Dashboard({ onNavigate }) {
                     </div>
                 </button>
             </div>
-
-            {/* Smart Attendance Status */}
-            {state.smartAttendance?.enabled && (
-                <div className="voxel-card w-[92%] max-w-full mx-auto p-4 flex items-center gap-3 bg-surface-container-highest border-primary">
-                    <div className="w-10 h-10 bg-surface-container border-2 border-outline flex items-center justify-center shrink-0">
-                        <MapPin size={20} className="text-primary" />
-                    </div>
-                    <div>
-                        <h4 className="text-label-sm font-bold text-on-surface uppercase tracking-wider">Smart Attendance Active</h4>
-                        <p className="text-xs text-on-surface-variant">Checking location at scheduled lecture times.</p>
-                    </div>
-                </div>
-            )}
 
             {/* Day Attendance Panel */}
             <section

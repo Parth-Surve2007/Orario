@@ -92,6 +92,22 @@
   .neo-input, .voxel-input {
     @apply bg-surface-container-lowest text-on-surface border-4 border-outline rounded-none px-3 py-2 outline-none focus:border-primary focus:shadow-[6px_6px_0px_var(--color-primary)] transition-all;
   }
+
+  /* Date/time inputs: normalize appearance across browsers */
+  input[type="date"],
+  input[type="time"] {
+    appearance: none;
+    -webkit-appearance: none;
+    line-height: 1.5;
+  }
+
+  /* Android Chrome: align date/time input text */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+  }
   .glass-nav {
     @apply bg-surface border-4 border-outline rounded-none shadow-[0px_-6px_0px_var(--color-outline)];
   }

@@ -1,6 +1,5 @@
 import React, { useContext, useRef, useState } from 'react';
 import { AppContext } from '../App';
-import LocationPicker from '../components/LocationPicker';
 import ExcelPreviewModal from '../components/ExcelPreviewModal';
 import { processExcelFile, previewExcelFile } from '../utils/excelParser';
 import { THEMES } from '../utils/themes';
@@ -11,21 +10,14 @@ import {
   importAllData,
   saveExcelSheets,
 } from '../utils/db';
-import { Moon, Sun, Bell, Calendar, Save, Upload, Trash2, Plus, X, Check, MapPin, Locate, Download, FileUp, Clock } from 'lucide-react';
-import { DEFAULT_DAILY_REMINDER_TIME, DEFAULT_REVIEW_DELAY_MINUTES, REVIEW_REMINDER_DELAYS } from '../services/ReminderService';
+import { Moon, Sun, Bell, Calendar, Save, Upload, Trash2, Plus, X, Check, Download, FileUp } from 'lucide-react';
 
-const VESIT_LOCATION = { lat: 19.045701, lng: 72.889137 };
-const DEFAULT_SMART_RADIUS = 200;
 
 export default function SettingsView() {
   const { state, updateState, theme, setTheme, colorTheme, setColorTheme } = useContext(AppContext);
   const fileInputRef = useRef(null);
   const holidayInputRef = useRef(null);
   const backupInputRef = useRef(null);
-  const [showLocationSetup, setShowLocationSetup] = useState(false);
-  const [showManualLocation, setShowManualLocation] = useState(false);
-  const [showReminderSettings, setShowReminderSettings] = useState(false);
-  const [reminderDraft, setReminderDraft] = useState(state.smartAttendance?.reviewReminderDelayMinutes ?? DEFAULT_REVIEW_DELAY_MINUTES);
   const [dialog, setDialog] = useState(null);
   const [excelPreview, setExcelPreview] = useState(null);
   const [pendingFile, setPendingFile] = useState(null);
@@ -49,6 +41,14 @@ export default function SettingsView() {
     const file = e.target.files[0];
     if (!file) return;
 
+    // File size validation (10MB limit)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > MAX_FILE_SIZE) {
+      showNotice('File Too Large', 'The file exceeds 10MB. Please use a smaller Excel file.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     try {
       const result = await previewExcelFile(file, state.classes);
       setExcelPreview(result);
@@ -56,6 +56,7 @@ export default function SettingsView() {
     } catch (err) {
       console.error(err);
       showNotice('Upload Failed', 'Error parsing Excel file.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -151,11 +152,33 @@ export default function SettingsView() {
     try {
       const text = await file.text();
       const payload = JSON.parse(text);
+
+      // Validate payload structure before importing
+      if (!payload || typeof payload !== 'object') {
+        throw new Error('Invalid file format');
+      }
+
+      if (!payload.app || typeof payload.app !== 'string') {
+        throw new Error('Invalid backup file: missing app identifier');
+      }
+
+      // Import the data
       await importAllData(payload);
+
       showNotice('Backup Imported', 'Reloading Orario now...', () => window.location.reload());
     } catch (error) {
       console.error(error);
-      showNotice('Import Failed', 'Please choose a valid Orario JSON file.');
+      let errorMessage = 'Please choose a valid Orario JSON file.';
+
+      if (error.message.includes('Invalid Orario backup file')) {
+        errorMessage = 'This is not a valid Orario backup file.';
+      } else if (error.message.includes('Invalid file format')) {
+        errorMessage = 'The file is not valid JSON.';
+      } else if (error.message.includes('missing app identifier')) {
+        errorMessage = 'The backup file is corrupted or invalid.';
+      }
+
+      showNotice('Import Failed', errorMessage);
     }
   };
 
@@ -163,168 +186,15 @@ export default function SettingsView() {
     ? Object.entries(state.subjectMappings[state.selectedClass])
     : [];
 
-  const closeLocationSetup = () => {
-    setShowLocationSetup(false);
-    setShowManualLocation(false);
-  };
-
-  const saveCollegeLocation = (location) => {
+  const handleAttendanceReminderToggle = () => {
+    const currentValue = Boolean(state.attendanceReminder?.enabled);
     updateState({
-      smartAttendance: {
-        ...state.smartAttendance,
-        enabled: true,
-        collegeLocation: location,
-        radius: state.smartAttendance?.radius || DEFAULT_SMART_RADIUS,
-        reviewReminderEnabled: state.smartAttendance?.reviewReminderEnabled ?? true,
-        reviewReminderDelayMinutes: state.smartAttendance?.reviewReminderDelayMinutes ?? DEFAULT_REVIEW_DELAY_MINUTES,
+      attendanceReminder: {
+        enabled: !currentValue
       }
     });
-    closeLocationSetup();
-    showNotice('Location Saved', 'College location saved successfully.');
   };
 
-  const handleSetVesitLocation = () => {
-    saveCollegeLocation(VESIT_LOCATION);
-  };
-
-  const requestLocationAccess = () => {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        resolve(false);
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        () => resolve(true),
-        () => resolve(false),
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        }
-      );
-    });
-  };
-
-  const showLocationPermissionHelp = () => {
-    showNotice(
-      'Location Permission Needed',
-      'Allow location for Orario in your browser/app settings, then come back and tap Enable again. Android: site settings > location. iOS: Settings > Safari or browser > Location.'
-    );
-  };
-
-  const showNotificationPermissionHelp = () => {
-    showNotice(
-      'Notification Permission Needed',
-      'Allow notifications for Orario in your browser/app settings, then come back and tap Enable again.'
-    );
-  };
-
-  const requestNotificationAccess = async () => {
-    if (!('Notification' in window)) return false;
-    if (Notification.permission === 'granted') return true;
-    if (Notification.permission === 'denied') return false;
-    const permission = await Notification.requestPermission();
-    return permission === 'granted';
-  };
-
-  const handleReviewReminderToggle = async () => {
-    const currentValue = state.smartAttendance?.reviewReminderEnabled ?? true;
-    if (currentValue) {
-      updateState({
-        smartAttendance: {
-          ...state.smartAttendance,
-          reviewReminderEnabled: false,
-        }
-      });
-      return;
-    }
-
-    const hasAccess = await requestNotificationAccess();
-    if (!hasAccess) {
-      showNotificationPermissionHelp();
-      return;
-    }
-
-    updateState({
-      smartAttendance: {
-        ...state.smartAttendance,
-        reviewReminderEnabled: true,
-        reviewReminderDelayMinutes: state.smartAttendance?.reviewReminderDelayMinutes ?? DEFAULT_REVIEW_DELAY_MINUTES,
-      }
-    });
-    setShowReminderSettings(true);
-  };
-
-  const handleDailyReminderToggle = async () => {
-    const currentValue = Boolean(state.dailyReminder?.enabled);
-    if (currentValue) {
-      updateState({
-        dailyReminder: {
-          ...state.dailyReminder,
-          enabled: false,
-          time: state.dailyReminder?.time || DEFAULT_DAILY_REMINDER_TIME,
-        },
-      });
-      return;
-    }
-
-    const hasAccess = await requestNotificationAccess();
-    if (!hasAccess) {
-      showNotificationPermissionHelp();
-      return;
-    }
-
-    updateState({
-      dailyReminder: {
-        ...state.dailyReminder,
-        enabled: true,
-        time: state.dailyReminder?.time || DEFAULT_DAILY_REMINDER_TIME,
-      },
-    });
-  };
-
-  const handleDailyReminderTimeChange = (event) => {
-    updateState({
-      dailyReminder: {
-        ...state.dailyReminder,
-        time: event.target.value || DEFAULT_DAILY_REMINDER_TIME,
-      },
-    });
-  };
-
-  const openReminderSettings = () => {
-    setReminderDraft(state.smartAttendance?.reviewReminderDelayMinutes ?? DEFAULT_REVIEW_DELAY_MINUTES);
-    setShowReminderSettings(true);
-  };
-
-  const saveReminderSettings = () => {
-    const allowedDelays = REVIEW_REMINDER_DELAYS.map((option) => option.value);
-    const minutes = allowedDelays.includes(Number(reminderDraft)) ? Number(reminderDraft) : DEFAULT_REVIEW_DELAY_MINUTES;
-    updateState({
-      smartAttendance: {
-        ...state.smartAttendance,
-        reviewReminderDelayMinutes: minutes,
-      }
-    });
-    setReminderDraft(minutes);
-    setShowReminderSettings(false);
-  };
-
-  const handleSmartAttendanceToggle = async () => {
-    if (state.smartAttendance?.enabled) {
-      updateState({ smartAttendance: { ...state.smartAttendance, enabled: false } });
-      return;
-    }
-
-    const hasLocationAccess = await requestLocationAccess();
-    if (!hasLocationAccess) {
-      showLocationPermissionHelp();
-      return;
-    }
-
-    setShowLocationSetup(true);
-  };
 
   return (
     <div className="flex flex-col gap-6 w-full">
@@ -348,30 +218,38 @@ export default function SettingsView() {
 
         <div className="flex flex-col gap-3 py-2 border-b border-outline/10 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col">
-            <span className="text-body-md text-on-surface font-bold">Daily Reminder</span>
+            <span className="text-body-md text-on-surface font-bold">Attendance Reminder</span>
             <span className="text-label-sm text-on-surface-variant">
-              {state.dailyReminder?.enabled
-                ? `On at ${state.dailyReminder?.time || DEFAULT_DAILY_REMINDER_TIME}`
-                : 'Off'}
+              {state.attendanceReminder?.enabled ? 'On' : 'Off'}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="time"
-              className="voxel-input w-32 text-label-sm font-bold"
-              value={state.dailyReminder?.time || DEFAULT_DAILY_REMINDER_TIME}
-              onChange={handleDailyReminderTimeChange}
-              aria-label="Daily reminder time"
-            />
-            <button
-              className={`voxel-btn-secondary text-label-sm flex items-center gap-2 font-bold ${state.dailyReminder?.enabled ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container text-on-surface'}`}
-              onClick={handleDailyReminderToggle}
-            >
-              <Bell size={16} />
-              {state.dailyReminder?.enabled ? 'Enabled' : 'Enable'}
-            </button>
-          </div>
+          <button
+            className={`voxel-btn-secondary text-label-sm flex items-center gap-2 font-bold ${state.attendanceReminder?.enabled ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container text-on-surface'}`}
+            onClick={handleAttendanceReminderToggle}
+          >
+            <Bell size={16} />
+            {state.attendanceReminder?.enabled ? 'Enabled' : 'Enable'}
+          </button>
         </div>
+
+        {state.attendanceReminder?.enabled && (
+          <div className="voxel-card bg-surface-container-lowest p-4 border border-outline/20">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-primary border-2 border-outline flex items-center justify-center shrink-0">
+                <Bell size={16} className="text-on-primary" />
+              </div>
+              <div>
+                <h4 className="text-label-sm font-bold text-on-surface uppercase tracking-wider mb-1">How it works</h4>
+                <p className="text-label-sm text-on-surface-variant leading-5">
+                  Whenever you open Orario, it automatically checks today's timetable for lectures whose attendance hasn't been marked yet.
+                </p>
+                <p className="text-label-sm text-on-surface-variant leading-5 mt-2">
+                  Everything works completely offline. No notifications. No background tracking. No location access.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Colour Theme Picker ── */}
         <div className="pt-2">
@@ -405,136 +283,6 @@ export default function SettingsView() {
             {selectedColorTheme.description}
           </p>
         </div>
-      </section>
-
-      {/* Smart Attendance Section */}
-      <section id="tour-gps-settings" className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-6 scroll-mt-6">
-        <header>
-          <h2 className="text-headline-lg-mobile text-on-surface font-header mb-1 flex items-center gap-2">
-            <MapPin size={24} className="text-primary" /> Smart Attendance
-          </h2>
-          <p className="text-body-md text-on-surface-variant">Automatically mark attendance using geofencing during scheduled lectures.</p>
-        </header>
-
-        <div className="flex items-center justify-between py-2 border-b border-outline/10">
-          <div className="flex flex-col">
-            <span className="text-body-md text-on-surface font-bold">Enable Smart Attendance</span>
-            <span className="text-label-sm text-on-surface-variant">Requires location permissions</span>
-          </div>
-          <button
-            className={`voxel-btn-secondary text-label-sm flex items-center gap-2 font-bold ${state.smartAttendance?.enabled ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container text-on-surface'}`}
-            onClick={handleSmartAttendanceToggle}
-          >
-            {state.smartAttendance?.enabled ? 'Enabled' : 'Disabled'}
-          </button>
-        </div>
-
-        {state.smartAttendance?.enabled && (
-          <div className="flex flex-col gap-4 p-4 border-2 border-outline bg-surface-container-lowest shadow-[3px_3px_0px_var(--color-outline)]">
-            {/* GPS Status Indicator */}
-            <div className="flex flex-col gap-2 p-3 border-2 border-outline bg-surface-container">
-              <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">GPS Status</label>
-              {(() => {
-                const todayStr = new Date().toISOString().split('T')[0];
-                const checks = state.smartAttendance?.lastChecks || {};
-                const todayChecks = Object.values(checks).filter(c => c.key?.startsWith(todayStr));
-                const mostRecentCheck = todayChecks[todayChecks.length - 1];
-                
-                if (!mostRecentCheck || (!mostRecentCheck.startChecked && !mostRecentCheck.endChecked)) {
-                  return (
-                    <span className="text-xs text-on-surface-variant">
-                      Waiting for scheduled lecture...
-                    </span>
-                  );
-                }
-                
-                const status = mostRecentCheck.entryStatus || mostRecentCheck.exitStatus;
-                const confidence = mostRecentCheck.entryConfidence || mostRecentCheck.exitConfidence;
-                
-                const getStatusColor = (conf) => {
-                  switch (conf) {
-                    case 'HIGH': return 'text-secondary';
-                    case 'MEDIUM': return 'text-primary';
-                    case 'LOW': return 'text-orange-500';
-                    case 'NONE': return 'text-error';
-                    default: return 'text-on-surface-variant';
-                  }
-                };
-                
-                return (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-on-surface">{status}</span>
-                    <span className={`text-[10px] font-bold uppercase ${getStatusColor(confidence)}`}>
-                      Confidence: {confidence}
-                    </span>
-                  </div>
-                );
-              })()}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">College Location</label>
-              {state.smartAttendance?.collegeLocation?.lat ? (
-                <span className="text-xs text-primary font-mono">
-                  Saved: {state.smartAttendance.collegeLocation.lat.toFixed(5)}, {state.smartAttendance.collegeLocation.lng.toFixed(5)}
-                </span>
-              ) : (
-                <span className="text-xs text-error font-mono">Not set</span>
-              )}
-              <button
-                className="voxel-btn-secondary flex items-center justify-center gap-2 text-label-sm mt-1"
-                onClick={() => setShowLocationSetup(true)}
-              >
-                <MapPin size={16} /> Change College Location
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Radius (meters)</label>
-              <input
-                type="number"
-                className="voxel-input w-full"
-                value={state.smartAttendance?.radius || DEFAULT_SMART_RADIUS}
-                onChange={(e) => updateState({ smartAttendance: { ...state.smartAttendance, radius: parseInt(e.target.value) || DEFAULT_SMART_RADIUS } })}
-              />
-            </div>
-
-            <div className="border-t border-outline/10 pt-4 flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex flex-col">
-                  <span className="text-body-md text-on-surface font-bold">Review Attendance Reminder</span>
-                  <span className="text-label-sm text-on-surface-variant">
-                    {state.smartAttendance?.reviewReminderEnabled === false
-                      ? 'Off'
-                      : `${state.smartAttendance?.reviewReminderDelayMinutes ?? DEFAULT_REVIEW_DELAY_MINUTES} min after final lecture`}
-                  </span>
-                </div>
-                <button
-                  className={`voxel-btn-secondary text-label-sm flex items-center gap-2 font-bold ${state.smartAttendance?.reviewReminderEnabled === false ? 'bg-surface-container text-on-surface' : 'bg-primary-container text-on-primary-container'}`}
-                  onClick={handleReviewReminderToggle}
-                >
-                  <Bell size={16} />
-                  {state.smartAttendance?.reviewReminderEnabled === false ? 'Enable' : 'Enabled'}
-                </button>
-              </div>
-
-              {state.smartAttendance?.reviewReminderEnabled !== false && (
-                <button
-                  type="button"
-                  className="voxel-btn-secondary text-label-sm flex items-center justify-center gap-2 font-bold"
-                  onClick={openReminderSettings}
-                >
-                  <Clock size={16} />
-                  Reminder Delay
-                </button>
-              )}
-            </div>
-
-            <div className="mt-2 p-3 bg-primary-container/20 border-l-4 border-primary text-xs text-on-surface-variant">
-              <strong>Privacy Note:</strong> Orario only checks your location at scheduled lecture start and end times. The review reminder is scheduled locally from your timetable and does not track location.
-            </div>
-          </div>
-        )}
       </section>
 
       {dialog && (
@@ -575,101 +323,6 @@ export default function SettingsView() {
         </div>
       )}
 
-      {showReminderSettings && (
-        <div className="fixed inset-0 z-[85] bg-black/50 px-4 py-8 flex items-center justify-center">
-          <div className="voxel-card w-full max-w-sm p-5 bg-surface flex flex-col gap-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-primary border-2 border-outline flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0">
-                  <Clock size={18} className="text-on-primary" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-body-md text-on-surface font-header uppercase">Review Reminder</h3>
-                  <p className="text-label-sm text-on-surface-variant mt-1 leading-5">
-                    Choose how long after the final scheduled lecture Orario should ask you to review attendance.
-                  </p>
-                </div>
-              </div>
-              <button
-                className="border-2 border-outline bg-surface-container w-9 h-9 flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0"
-                onClick={() => setShowReminderSettings(false)}
-                aria-label="Close review reminder settings"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {REVIEW_REMINDER_DELAYS.map((option) => {
-                const minutes = option.value;
-                const isActive = Number(reminderDraft) === minutes;
-                return (
-                  <button
-                    key={minutes}
-                    type="button"
-                    className={`border-2 border-outline px-2 py-2 text-label-sm font-black shadow-[2px_2px_0px_var(--color-outline)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${isActive ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface'}`}
-                    onClick={() => setReminderDraft(minutes)}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button className="voxel-btn-secondary text-label-sm" onClick={() => setShowReminderSettings(false)}>
-                Cancel
-              </button>
-              <button className="voxel-btn-primary text-label-sm" onClick={saveReminderSettings}>
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showLocationSetup && (
-        <div className="fixed inset-0 z-[80] bg-black/50 px-4 py-8 flex items-center justify-center">
-          <div className="voxel-card w-full max-w-md max-h-[88vh] overflow-y-auto p-5 flex flex-col gap-4 bg-surface">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-body-md text-on-surface font-header uppercase">Set College Location</h3>
-                <p className="text-label-sm text-on-surface-variant mt-1">
-                  Choose one option to enable Smart Attendance.
-                </p>
-              </div>
-              <button
-                className="border-2 border-outline bg-surface-container w-9 h-9 flex items-center justify-center shadow-[2px_2px_0px_var(--color-outline)] shrink-0"
-                onClick={closeLocationSetup}
-                aria-label="Close location setup"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <button className="voxel-btn-secondary flex items-center justify-center gap-2" onClick={handleSetVesitLocation}>
-              <MapPin size={18} /> Option 1: VESIT
-            </button>
-            <span className="text-[10px] text-on-surface-variant font-mono text-center">
-              19.045701, 72.889137
-            </span>
-
-            <button
-              className="voxel-btn-secondary flex items-center justify-center gap-2"
-              onClick={() => setShowManualLocation((current) => !current)}
-            >
-              <Locate size={18} /> Option 2: Set Manually
-            </button>
-
-            {showManualLocation && (
-              <LocationPicker
-                value={state.smartAttendance?.collegeLocation}
-                onSave={saveCollegeLocation}
-              />
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Setup Section */}
       <section id="tour-setup-dates" className="voxel-card mx-auto w-9/10 p-6 flex flex-col gap-6 scroll-mt-6 overflow-hidden">
@@ -680,17 +333,11 @@ export default function SettingsView() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
             <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Start Date</label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" size={18} />
-              <input type="date" id="sem-start" defaultValue={state.semester?.start} className="voxel-input w-full pl-10 min-w-0" />
-            </div>
+            <input type="date" id="sem-start" defaultValue={state.semester?.start} className="voxel-input w-full" />
           </div>
           <div className="flex flex-col gap-2">
             <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">End Date</label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" size={18} />
-              <input type="date" id="sem-end" defaultValue={state.semester?.end} className="voxel-input w-full pl-10 min-w-0" />
-            </div>
+            <input type="date" id="sem-end" defaultValue={state.semester?.end} className="voxel-input w-full" />
           </div>
         </div>
         <div className="flex justify-end">
@@ -831,21 +478,21 @@ export default function SettingsView() {
         </div>
 
         {/* Add holiday row */}
-        <div className="flex gap-2 items-center">
-          <div className="flex-1 min-w-0 flex flex-col gap-2">
-            <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Add Holiday</label>
+        <div className="flex flex-col gap-2">
+          <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Add Holiday</label>
+          <div className="flex gap-2 items-center">
             <input
               type="date"
               ref={holidayInputRef}
-              className="voxel-input w-full"
+              className="voxel-input flex-1 min-w-0"
             />
+            <button
+              className="voxel-btn-primary flex items-center gap-1 font-bold shrink-0"
+              onClick={addHoliday}
+            >
+              <Plus size={16} /> Add
+            </button>
           </div>
-          <button
-            className="voxel-btn-primary flex items-center gap-1 font-bold shrink-0"
-            onClick={addHoliday}
-          >
-            <Plus size={16} /> Add
-          </button>
         </div>
 
         {/* Holiday list */}

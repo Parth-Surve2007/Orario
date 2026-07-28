@@ -9,6 +9,7 @@ export default function Tasks() {
   const [subject, setSubject] = useState('');
   const [type, setType] = useState('Assignment');
   const [dueDate, setDueDate] = useState('');
+  const [error, setError] = useState('');
 
   const subjects = state.selectedClass && state.subjectMappings?.[state.selectedClass]
     ? Object.keys(state.subjectMappings[state.selectedClass])
@@ -16,7 +17,7 @@ export default function Tasks() {
 
   const handleAddTask = () => {
     if (!title || !dueDate) {
-      alert('Title and Due Date are required.');
+      setError('Title and Due Date are required.');
       return;
     }
 
@@ -33,6 +34,17 @@ export default function Tasks() {
     setTitle('');
     setSubject('');
     setDueDate('');
+    setError('');
+  };
+
+  const handleTitleChange = (value) => {
+    setTitle(value);
+    if (error) setError('');
+  };
+
+  const handleDueDateChange = (value) => {
+    setDueDate(value);
+    if (error) setError('');
   };
 
   const handleToggleTask = (id) => {
@@ -59,7 +71,7 @@ export default function Tasks() {
           <input
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => handleTitleChange(e.target.value)}
             className="voxel-input w-full"
             placeholder="Task Title (e.g. Lab Report 1)"
           />
@@ -86,7 +98,7 @@ export default function Tasks() {
             <input
               type="date"
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
+              onChange={(e) => handleDueDateChange(e.target.value)}
               className="voxel-input flex-1"
             />
             <button
@@ -96,6 +108,9 @@ export default function Tasks() {
               <Plus size={16} /> Add
             </button>
           </div>
+          {error && (
+            <p className="text-xs text-error font-bold">{error}</p>
+          )}
         </div>
       </section>
 

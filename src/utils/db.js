@@ -151,10 +151,30 @@ export async function importAllData(payload) {
   }
 
   if (payload.state) {
+    const s = payload.state;
+    if (s.attendance && (typeof s.attendance !== 'object' || Array.isArray(s.attendance))) {
+      throw new Error('Invalid backup file: attendance must be an object');
+    }
+    if (s.holidays && !Array.isArray(s.holidays)) {
+      throw new Error('Invalid backup file: holidays must be an array');
+    }
+    if (s.timetableSchedule && (typeof s.timetableSchedule !== 'object' || Array.isArray(s.timetableSchedule))) {
+      throw new Error('Invalid backup file: timetableSchedule must be an object');
+    }
+    if (s.semester && (typeof s.semester !== 'object' || Array.isArray(s.semester))) {
+      throw new Error('Invalid backup file: semester must be an object');
+    }
+    if (s.classes && !Array.isArray(s.classes)) {
+      throw new Error('Invalid backup file: classes must be an array');
+    }
+    
     await saveAppState(payload.state);
   }
 
   if (payload.allSheetsJSON) {
+    if (typeof payload.allSheetsJSON !== 'object' || Array.isArray(payload.allSheetsJSON)) {
+      throw new Error('Invalid backup file: allSheetsJSON must be an object');
+    }
     await saveExcelSheets(payload.allSheetsJSON);
   } else {
     await saveExcelSheets(null);
@@ -171,4 +191,27 @@ export function downloadJsonBackup(payload, filename) {
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+export async function requestPersistentStorage() {
+  try {
+    if (navigator.storage && navigator.storage.persist) {
+      const isPersisted = await navigator.storage.persist();
+      if (import.meta.env.DEV) {
+        console.log(`[Storage] Persistent storage granted: ${isPersisted}`);
+        if (navigator.storage.estimate) {
+          const estimate = await navigator.storage.estimate();
+          console.log(`[Storage] Usage: ${(estimate.usage / 1024 / 1024).toFixed(2)} MB of ${(estimate.quota / 1024 / 1024).toFixed(2)} MB`);
+        }
+      }
+    } else {
+      if (import.meta.env.DEV) {
+        console.log('[Storage] navigator.storage API unsupported on this browser.');
+      }
+    }
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('[Storage] Error requesting persistent storage:', error);
+    }
+  }
 }

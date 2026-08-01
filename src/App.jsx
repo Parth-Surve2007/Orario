@@ -11,7 +11,7 @@ import InstallPrompt from './components/InstallPrompt';
 import AttendanceReminderModal from './components/AttendanceReminderModal';
 import { applyTheme, DEFAULT_THEME, getStoredThemeSnapshot } from './utils/themes';
 import { useAttendanceReminder } from './hooks/useAttendanceReminder';
-import { loadAppState, saveAppState } from './utils/db';
+import { loadAppState, saveAppState, requestPersistentStorage } from './utils/db';
 
 export const AppContext = React.createContext({});
 
@@ -80,6 +80,8 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+    
+    requestPersistentStorage();
 
     loadAppState()
       .then((saved) => {

@@ -109,7 +109,7 @@ export const processExcelFile = async (file, currentClasses) => {
 
         let parsedTimetable;
         if (isNewFormat) {
-          parsedTimetable = parseMasterTimetable(activeData, teacherMap);
+          parsedTimetable = parseMasterTimetable(activeData, teacherMap, wb.Sheets[timetableSheetName]);
         } else {
           // Old FE format — also check for allocation sheet
           const allocSheetName = sheetNames.find(n =>
@@ -317,9 +317,16 @@ function parseCellLectures(cellText, teacherMap) {
     const subj = cleanSubject(lines[0]);
     const mid  = lines[1].replace(/[()[\]]/g, '').trim().toUpperCase();
     const last = lines[2].replace(/[()[\]]/g, '').trim().toUpperCase();
-    const code = [mid, last].find(t => INIT_RE.test(t) && !isRoomNumber(t)) || '';
-    if (subj && !isBreakContent(subj))
-      return [{ subject: subj, teacher: resolveTeacher(code, teacherMap) }];
+    
+    const isMidCodeOrRoom = (INIT_RE.test(mid) && !isRoomNumber(mid)) || isRoomNumber(mid);
+    const isLastCodeOrRoom = (INIT_RE.test(last) && !isRoomNumber(last)) || isRoomNumber(last);
+    
+    if (isMidCodeOrRoom || isLastCodeOrRoom) {
+      const code = [mid, last].find(t => INIT_RE.test(t) && !isRoomNumber(t)) || '';
+      if (subj && !isBreakContent(subj)) {
+        return [{ subject: subj, teacher: resolveTeacher(code, teacherMap) }];
+      }
+    }
   }
 
   // ── 2-line: SUBJ / (CODE) ─────────────────────────────────────────────────
@@ -405,7 +412,7 @@ function normalizeTime(t) {
     .replace(/\s+/g, '');
 }
 
-function parseMasterTimetable(data, teacherMap) {
+function parseMasterTimetable(data, teacherMap, worksheet) {
   if (!data || data.length === 0) return { classes: [], schedule: {} };
 
   const schedule  = {};
@@ -413,20 +420,20 @@ function parseMasterTimetable(data, teacherMap) {
   let columnClassMap = {}; // col index → normalized class name
   let currentDay = '';
 
-  for (const row of data) {
+  for (let rowIdx = 0; rowIdx < data.length; rowIdx++) {
+    const row = data[rowIdx];
     if (!row || row.length === 0) continue;
 
     // ── Day row ───────────────────────────────────────────────────────────
     const dayFound = detectDay(row);
-    if (dayFound) {
+    if (dayFound && currentDay !== dayFound) {
       currentDay = dayFound;
       if (!schedule[currentDay]) schedule[currentDay] = [];
-      columnClassMap = {};
-      continue;
     }
 
     // ── Class-header row (contains TIME/CLASS or close variant) ───────────
     if (isClassHeaderRow(row)) {
+      columnClassMap = {};
       row.forEach((cell, colIdx) => {
         const val = String(cell || '').trim();
         const upper = val.toUpperCase().replace(/[\s\-\/]/g, '');
@@ -449,13 +456,37 @@ function parseMasterTimetable(data, teacherMap) {
     });
     if (!timeStr) continue;
 
-    Object.entries(columnClassMap).forEach(([colIdx, className]) => {
-      const cell = row[Number(colIdx)];
+    Object.entries(columnClassMap).forEach(([colIdxStr, className]) => {
+      const colIdx = Number(colIdxStr);
+      const cell = row[colIdx];
       if (!cell) return;
+      
+      let finalTimeStr = timeStr;
+      
+      if (worksheet && worksheet['!merges']) {
+        const merge = worksheet['!merges'].find(m => m.s.r === rowIdx && m.s.c === colIdx && m.e.r > m.s.r);
+        if (merge) {
+          let endTimeStr = '';
+          const endRow = data[merge.e.r];
+          if (endRow) {
+            endRow.forEach(c => {
+              if (!endTimeStr && isNewTimeStr(c)) endTimeStr = normalizeTime(c);
+            });
+          }
+          if (endTimeStr) {
+            const startParts = timeStr.split('-');
+            const endParts = endTimeStr.split('-');
+            if (startParts.length >= 2 && endParts.length >= 2) {
+              finalTimeStr = `${startParts[0].trim()}-${endParts[1].trim()}`;
+            }
+          }
+        }
+      }
+
       parseCellLectures(cell, teacherMap).forEach(({ subject, teacher }) => {
         const displayName = teacher ? `${subject} (${teacher})` : subject;
         schedule[currentDay].push({
-          time: timeStr,
+          time: finalTimeStr,
           name: displayName,
           className,
         });

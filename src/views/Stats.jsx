@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import { AppContext } from '../App';
 import { Donut, Calendar, Upload, FileQuestion } from 'lucide-react';
+import { lectureMatchesSelection } from '../utils/lectureMatching';
 
 export default function Stats({ onNavigate }) {
   const { state } = useContext(AppContext);
@@ -67,26 +68,8 @@ export default function Stats({ onNavigate }) {
       };
     };
 
-    const lectureMatches = (l) => {
-      if (!l) return false;
-      const myClass = (state.selectedClass || '').toUpperCase();
-      if (!myClass) return true; // no class filter if not set
-      const normalize = (s) => (s || '').replace(/I/g, '1').toUpperCase();
-      const lClass = (l.className || '').toUpperCase();
-      if (lClass && lClass !== myClass && normalize(lClass) !== normalize(myClass)) return false;
-      if (state.selectedBatch) {
-        const name = (l.name || '').toUpperCase();
-        const matches = name.match(/\(([^)]+)\)/g);
-        if (matches) {
-          const hasBatchIndicator = matches.some(m => m.includes('(B') || m.includes(' B'));
-          if (hasBatchIndicator) {
-            const batchMatch = matches.some(m => m.includes(state.selectedBatch));
-            if (!batchMatch) return false;
-          }
-        }
-      }
-      return true;
-    };
+    const lectureMatches = (l) =>
+      lectureMatchesSelection(l, state.selectedClass, state.selectedBatch);
 
     let totalLectures = 0;
     let presentLectures = 0;

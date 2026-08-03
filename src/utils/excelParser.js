@@ -295,8 +295,35 @@ const isBreakContent = (v) => {
 // Teacher initials: 2–7 uppercase letters (widened to catch BNCY, AnP etc.)
 const INIT_RE = /^[A-Z]{2,7}$/;
 
+function isBatchToken(s) {
+  const u = String(s || '').trim().toUpperCase();
+  if (!u) return false;
+  if (/^[A-H]$/.test(u)) return true;
+  if (/^[AB][1-9]$/.test(u)) return true;
+  if (/^B[1-9]\s*\([^)]*\)$/.test(u)) return true;
+  if (/^BATCH\s*[-:]?\s*[0-9A-Z]+/i.test(u)) return true;
+  if (/^(DIV\s*[A-Z]|[A-Z]\s*DIV)$/i.test(u)) return true;
+  if (/^A5[1-9]$/.test(u) || /^B41[1-9]$/.test(u)) return true;
+  if (/^[1-9]$/.test(u)) return true;
+  return false;
+}
+
+function extractBatchString(s) {
+  const u = String(s || '').trim().toUpperCase();
+  if (!u) return '';
+  if (/^[A-H]$/.test(u)) return u;
+  if (/^[AB][1-9]$/.test(u)) return u;
+  const bMatch = u.match(/^B([1-9])/);
+  if (bMatch) return `B${bMatch[1]}`;
+  const batchMatch = u.match(/^BATCH\s*[-:]?\s*([0-9A-Z]+)/);
+  if (batchMatch) return batchMatch[1];
+  const divMatch = u.match(/(?:DIV\s*([A-Z])|([A-Z])\s*DIV)/);
+  if (divMatch) return divMatch[1] || divMatch[2];
+  return u;
+}
+
 /**
- * Parse a timetable cell into an array of { subject, teacher }.
+ * Parse a timetable cell into an array of { subject, teacher, batch }.
  * Handles all observed variants and some extra ones for robustness:
  *   1. "SUBJ\n(CODE)\nROOM"          (3-line multiline)
  *   2. "SUBJ\n(CODE)"                (2-line multiline)
@@ -309,8 +336,20 @@ function parseCellLectures(cellText, teacherMap) {
   const raw = String(cellText || '').trim();
   if (!raw || isBreakContent(raw)) return [];
 
-  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l && !isBreakContent(l));
-  if (lines.length === 0) return [];
+  const rawLines = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l && !isBreakContent(l));
+  if (rawLines.length === 0) return [];
+
+  const lines = [];
+  rawLines.forEach(line => {
+    if (line.includes('/') && line.length > 15) {
+      const splitSegments = line.split(/\s*\/\s*(?=[A-Z0-9\s&-]{2,15}\/)/i);
+      splitSegments.forEach(s => {
+        if (s.trim()) lines.push(s.trim());
+      });
+    } else {
+      lines.push(line);
+    }
+  });
 
   // ── 3-line: SUBJ / (CODE) / ROOM ──────────────────────────────────────────
   if (lines.length === 3 && !lines[0].includes('/')) {
@@ -318,13 +357,14 @@ function parseCellLectures(cellText, teacherMap) {
     const mid  = lines[1].replace(/[()[\]]/g, '').trim().toUpperCase();
     const last = lines[2].replace(/[()[\]]/g, '').trim().toUpperCase();
     
-    const isMidCodeOrRoom = (INIT_RE.test(mid) && !isRoomNumber(mid)) || isRoomNumber(mid);
-    const isLastCodeOrRoom = (INIT_RE.test(last) && !isRoomNumber(last)) || isRoomNumber(last);
+    const isMidCodeOrRoom = (INIT_RE.test(mid) && !isRoomNumber(mid)) || isRoomNumber(mid) || isBatchToken(mid);
+    const isLastCodeOrRoom = (INIT_RE.test(last) && !isRoomNumber(last)) || isRoomNumber(last) || isBatchToken(last);
     
     if (isMidCodeOrRoom || isLastCodeOrRoom) {
-      const code = [mid, last].find(t => INIT_RE.test(t) && !isRoomNumber(t)) || '';
+      const code = [mid, last].find(t => INIT_RE.test(t) && !isRoomNumber(t) && !isBatchToken(t)) || '';
+      const batchTok = [mid, last].find(t => isBatchToken(t)) || '';
       if (subj && !isBreakContent(subj)) {
-        return [{ subject: subj, teacher: resolveTeacher(code, teacherMap) }];
+        return [{ subject: subj, teacher: resolveTeacher(code, teacherMap), batch: extractBatchString(batchTok) }];
       }
     }
   }
@@ -333,8 +373,9 @@ function parseCellLectures(cellText, teacherMap) {
   if (lines.length === 2 && !lines[0].includes('/') && !lines[1].includes('/')) {
     const subj = cleanSubject(lines[0]);
     const code = lines[1].replace(/[()[\]]/g, '').trim().toUpperCase();
-    const teacher = resolveTeacher(INIT_RE.test(code) ? code : '', teacherMap);
-    if (subj && !isBreakContent(subj)) return [{ subject: subj, teacher }];
+    const batchTok = isBatchToken(code) ? extractBatchString(code) : '';
+    const teacher = resolveTeacher(INIT_RE.test(code) && !isBatchToken(code) ? code : '', teacherMap);
+    if (subj && !isBreakContent(subj)) return [{ subject: subj, teacher, batch: batchTok }];
   }
 
   // ── Multi-line or single slash/inline entries ──────────────────────────────
@@ -360,33 +401,56 @@ function parseInlineLecture(line, teacherMap) {
     if (parts.length < 2) return null;
     const subject = cleanSubject(parts[0]);
     if (!subject || isBreakContent(subject)) return null;
+
     let code = '';
+    let batch = '';
+
     for (let i = 1; i < parts.length; i++) {
-      const p = parts[i].replace(/\s/g, '').toUpperCase();
-      if (INIT_RE.test(p) && !isRoomNumber(p)) { code = p; break; }
+      const part = parts[i];
+      const upper = part.replace(/\s+/g, '').toUpperCase();
+
+      if (!batch && isBatchToken(part)) {
+        batch = extractBatchString(part);
+        continue;
+      }
+
+      if (!code && (teacherMap[upper] || (INIT_RE.test(upper) && !isRoomNumber(upper)))) {
+        code = upper;
+        continue;
+      }
     }
-    return { subject, teacher: resolveTeacher(code, teacherMap) };
+
+    return {
+      subject,
+      teacher: resolveTeacher(code, teacherMap),
+      batch: batch || '',
+    };
   }
 
   // ── Paren form: "SUBJ (CODE) ..." or square brackets "SUBJ [CODE] ..." ────
-  const bracketMatch = raw.match(/^(.+?)\s*[(\[]([\w]+)[\)|\]]/);
+  const bracketMatch = raw.match(/^(.+?)\s*[(\[]([\w\s-]+)[\)|\]]/);
   if (bracketMatch) {
     const subject = cleanSubject(bracketMatch[1]);
-    const code    = bracketMatch[2].trim().toUpperCase();
+    const code = bracketMatch[2].trim().toUpperCase();
     if (!subject || isBreakContent(subject)) return null;
-    return { subject, teacher: resolveTeacher(code, teacherMap) };
+    const batchCandidate = isBatchToken(code) ? extractBatchString(code) : '';
+    const teacherCandidate = INIT_RE.test(code) && !isBatchToken(code) ? resolveTeacher(code, teacherMap) : '';
+    return { subject, teacher: teacherCandidate, batch: batchCandidate };
   }
 
   // ── Plain text ─────────────────────────────────────────────────────────────
   const subject = cleanSubject(raw);
-  if (subject && !isBreakContent(subject)) return { subject, teacher: '' };
+  if (subject && !isBreakContent(subject)) return { subject, teacher: '', batch: '' };
   return null;
 }
 
 function isRoomNumber(s) {
-  // Numeric: "213"
-  // Alpha-prefix: "B21", "CAII", "CA4"
-  return /^\d+$/.test(s) || /^[A-Z]{1,3}\d+$/.test(s) || /^CAII$/i.test(s);
+  const u = String(s || '').trim().toUpperCase();
+  if (/^\d+$/.test(u)) return true;
+  if (/^[A-Z]{1,3}\d+$/.test(u)) return true;
+  if (/^CA\s*-?\s*[0-9IVX]+$/i.test(u)) return true;
+  if (/^\d+[A-Z]?$/i.test(u)) return true;
+  return false;
 }
 
 function resolveTeacher(code, teacherMap) {
@@ -483,12 +547,20 @@ function parseMasterTimetable(data, teacherMap, worksheet) {
         }
       }
 
-      parseCellLectures(cell, teacherMap).forEach(({ subject, teacher }) => {
-        const displayName = teacher ? `${subject} (${teacher})` : subject;
+      parseCellLectures(cell, teacherMap).forEach(({ subject, teacher, batch }) => {
+        let displayName = subject;
+        if (batch) {
+          displayName = `${subject} (Batch ${batch})`;
+        }
+        if (teacher) {
+          displayName = `${displayName} (${teacher})`;
+        }
+
         schedule[currentDay].push({
           time: finalTimeStr,
           name: displayName,
           className,
+          batch: batch || '',
         });
       });
     });

@@ -213,11 +213,6 @@ export default function Stats({ onNavigate }) {
       <section>
         <div className="flex items-center justify-between mb-4 pl-1">
           <h3 className="text-body-md w-[92%] max-w-full mx-auto font-bold text-on-surface gap-6">Subject-wise Attendance</h3>
-          {!hasAlloc && subjects.length > 0 && (
-            <span className="text-label-sm text-on-surface-variant font-bold border border-outline px-2 py-0.5">
-              No teacher data
-            </span>
-          )}
         </div>
 
         {subjects.length === 0 ? (

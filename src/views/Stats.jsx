@@ -60,7 +60,7 @@ export default function Stats({ onNavigate }) {
         const t = clean(s);
         return search.startsWith(t) || t.startsWith(search);
       });
-      const isLab = Boolean(batchSubject) || fullName.includes('LAB') || fullName.includes('PRACTICAL') || fullName.includes('PRAC');
+      const isLab = Boolean(batchSubject) || fullName.includes('LAB') || fullName.includes('PRACTICAL') || fullName.includes('PRAC') || fullName.includes('BATCH');
 
       return {
         label: `${matchedSub || base} (${isLab ? 'Lab' : 'Theory'})`,

@@ -60,11 +60,11 @@ export default function SettingsView() {
     }
   };
 
-  const confirmExcelImport = async () => {
+  const confirmExcelImport = async (effectiveFrom) => {
     if (!excelPreview || !pendingFile) return;
 
     try {
-      const todayKey = new Date().toISOString().split('T')[0];
+      const uploadedAt = effectiveFrom || new Date().toISOString().split('T')[0];
       const prevVersions = Array.isArray(state.timetableVersions) ? state.timetableVersions : [];
 
       // Migration: if no versions exist yet but we already have an old schedule,
@@ -74,19 +74,22 @@ export default function SettingsView() {
         baseVersions = [{ uploadedAt: '1900-01-01', schedule: state.timetableSchedule }];
       }
 
-      // If there's already a version for today, replace it; otherwise append
-      const versionsWithoutToday = baseVersions.filter(v => v.uploadedAt !== todayKey);
+      // If there's already a version for this date, replace it; otherwise append
+      const versionsWithoutDate = baseVersions.filter(v => v.uploadedAt !== uploadedAt);
       const newVersions = [
-        ...versionsWithoutToday,
-        { uploadedAt: todayKey, schedule: excelPreview.timetableSchedule }
+        ...versionsWithoutDate,
+        { uploadedAt, schedule: excelPreview.timetableSchedule }
       ].sort((a, b) => a.uploadedAt.localeCompare(b.uploadedAt));
+
+      // Always set timetableSchedule to the LATEST version
+      const latestSchedule = newVersions[newVersions.length - 1].schedule;
 
       updateState({
         sheetNames: excelPreview.sheetNames,
         selectedSheet: excelPreview.selectedSheet,
         selectedAllocSheet: excelPreview.selectedAllocSheet,
         subjectMappings: excelPreview.subjectMappings,
-        timetableSchedule: excelPreview.timetableSchedule,
+        timetableSchedule: latestSchedule,
         classes: excelPreview.classes,
         lastUploadedFile: excelPreview.fileName,
         rawTimetable: excelPreview.rawTimetable,

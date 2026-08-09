@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FileText, Calendar, Users, BookOpen, AlertTriangle, X, Check } from 'lucide-react';
 
 export default function ExcelPreviewModal({ previewData, onConfirm, onCancel }) {
   if (!previewData) return null;
+
+  const today = new Date().toISOString().split('T')[0];
+  const [effectiveFrom, setEffectiveFrom] = useState(today);
 
   const { preview } = previewData;
 
@@ -96,6 +99,19 @@ export default function ExcelPreviewModal({ previewData, onConfirm, onCancel }) 
           </div>
         )}
 
+        {/* Effective From Date */}
+        <div className="border-2 border-outline bg-surface-container-lowest p-3 flex flex-col gap-2">
+          <span className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Timetable Effective From</span>
+          <p className="text-xs text-on-surface-variant">Lectures shown on the Dashboard will use this timetable for dates on or after this date.</p>
+          <input
+            type="date"
+            className="voxel-input w-full"
+            value={effectiveFrom}
+            onChange={e => setEffectiveFrom(e.target.value)}
+            max={today}
+          />
+        </div>
+
         {/* Action Buttons */}
         <div className="flex gap-3 mt-2">
           <button
@@ -105,7 +121,7 @@ export default function ExcelPreviewModal({ previewData, onConfirm, onCancel }) 
             <X size={16} /> Cancel
           </button>
           <button
-            onClick={onConfirm}
+            onClick={() => onConfirm(effectiveFrom)}
             className="voxel-btn-primary flex-1 flex items-center justify-center gap-2 text-label-sm"
           >
             <Check size={16} /> Confirm Import

@@ -285,10 +285,8 @@ export default function Dashboard({ onNavigate }) {
                                                 <span className="text-[10px] font-bold text-primary bg-primary-container/40 border border-primary px-1 rounded-sm uppercase tracking-wider">Review</span>
                                             )}
                                         </div>
-                                        <div className="text-body-md font-medium text-on-surface truncate">
-                                            {l.name}
-                                            {l.room && <span className="text-on-surface-variant text-label-sm ml-2 px-1 border border-outline rounded bg-surface-container">Rm: {l.room}</span>}
-                                        </div>
+                                        <div className="text-body-md font-medium text-on-surface truncate">{l.name}</div>
+                                        {l.room && <div className="text-label-sm text-on-surface-variant font-bold mt-0.5">📍 {l.room}</div>}
                                     </div>
 
                                     {/* P / A buttons */}

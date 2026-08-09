@@ -66,8 +66,16 @@ export default function SettingsView() {
     try {
       const todayKey = new Date().toISOString().split('T')[0];
       const prevVersions = Array.isArray(state.timetableVersions) ? state.timetableVersions : [];
+
+      // Migration: if no versions exist yet but we already have an old schedule,
+      // preserve it as the "from the beginning" version so past dates still show it.
+      let baseVersions = prevVersions;
+      if (prevVersions.length === 0 && state.timetableSchedule && Object.keys(state.timetableSchedule).length > 0) {
+        baseVersions = [{ uploadedAt: '1900-01-01', schedule: state.timetableSchedule }];
+      }
+
       // If there's already a version for today, replace it; otherwise append
-      const versionsWithoutToday = prevVersions.filter(v => v.uploadedAt !== todayKey);
+      const versionsWithoutToday = baseVersions.filter(v => v.uploadedAt !== todayKey);
       const newVersions = [
         ...versionsWithoutToday,
         { uploadedAt: todayKey, schedule: excelPreview.timetableSchedule }

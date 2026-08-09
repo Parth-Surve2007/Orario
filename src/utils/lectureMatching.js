@@ -70,8 +70,8 @@ export const lectureMatchesSelection = (lecture, selectedClass, selectedBatch, s
 export const getScheduleForDate = (date, state) => {
     const versions = state.timetableVersions;
 
-    // No versioning yet — use the single current schedule
-    if (!versions || versions.length === 0) {
+    // No versioning yet, or corrupted (non-array) — fall back to the current schedule
+    if (!Array.isArray(versions) || versions.length === 0) {
         return state.timetableSchedule || {};
     }
 

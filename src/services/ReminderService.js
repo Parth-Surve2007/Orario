@@ -1,4 +1,5 @@
-import { lectureMatchesSelection } from '../utils/lectureMatching';
+import { lectureMatchesSelection, getScheduleForDate } from '../utils/lectureMatching';
+import { getLocalDateKey } from '../utils/dateUtils';
 
 const DAILY_REMINDER_STORAGE_KEY = 'orario_daily_reminders';
 const DEFAULT_DAILY_REMINDER_TIME = '08:20';
@@ -6,9 +7,7 @@ const DEFAULT_DAILY_REMINDER_TIME = '08:20';
 let scheduledDailyTimeoutId = null;
 let scheduledDailySignature = '';
 
-function getLocalDateKey(date = new Date()) {
-    return date.toISOString().split('T')[0];
-}
+// getLocalDateKey is now imported from dateUtils (local timezone, not UTC)
 
 function readDailyReminderLog() {
     try {
@@ -29,7 +28,9 @@ function getDayKey(date = new Date()) {
 
 function getTodaysLectures(state, date = new Date()) {
     const dayKey = getDayKey(date);
-    const lectures = ((state.timetableSchedule && state.timetableSchedule[dayKey]) || [])
+    const dateKey = getLocalDateKey(date); // local timezone
+    const todaySchedule = getScheduleForDate(dateKey, state); // versioned lookup
+    const lectures = ((todaySchedule && todaySchedule[dayKey]) || [])
         .map((lecture, originalIdx) => ({ ...lecture, _origIdx: originalIdx }))
         .filter((lecture) => lectureMatchesSelection(lecture, state.selectedClass, state.selectedBatch, state.selectedPceBatch));
 

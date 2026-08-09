@@ -2,12 +2,12 @@ import React, { useContext, useEffect, useState } from 'react';
 import { AppContext } from '../App';
 import { Hand, Upload, School, Donut, Check, X, Sun, CheckCheck, XSquare, CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import { lectureMatchesSelection, getScheduleForDate } from '../utils/lectureMatching';
+import { getLocalDateKey } from '../utils/dateUtils';
 
 export default function Dashboard({ onNavigate }) {
     const { state, updateState } = useContext(AppContext);
 
     // Date navigation (today by default)
-    const getLocalDateKey = () => new Date().toISOString().split('T')[0];
     const todayStr = getLocalDateKey();
     const [viewDate, setViewDate] = useState(todayStr);
 
@@ -67,10 +67,11 @@ export default function Dashboard({ onNavigate }) {
 
     const dayAttendance = attendance[viewDate] || {};
 
-    // Overall stats
+    // Overall stats — only count definitively marked lectures (present/absent)
     let total = 0, present = 0;
     Object.values(attendance).forEach(day => {
         Object.values(day).forEach(status => {
+            if (status !== 'present' && status !== 'absent') return; // skip needs-review
             total++;
             if (status === 'present') present++;
         });

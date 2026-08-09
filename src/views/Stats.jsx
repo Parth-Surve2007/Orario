@@ -1,14 +1,14 @@
 import React, { useContext } from 'react';
 import { AppContext } from '../App';
 import { Donut, Calendar, Upload, FileQuestion } from 'lucide-react';
-import { lectureMatchesSelection } from '../utils/lectureMatching';
+import { lectureMatchesSelection, getScheduleForDate } from '../utils/lectureMatching';
 
 export default function Stats({ onNavigate }) {
   const { state } = useContext(AppContext);
 
   const getStatistics = () => {
     const attendance = state.attendance || {};
-    const timetable = state.timetableSchedule || {};
+    // Do NOT use a single timetableSchedule — resolve per-date below
     const mappings = state.selectedClass && state.subjectMappings?.[state.selectedClass]
       ? state.subjectMappings[state.selectedClass] : {};
     const holidays = Array.isArray(state.holidays) ? state.holidays : [];
@@ -75,15 +75,20 @@ export default function Stats({ onNavigate }) {
     let presentLectures = 0;
     let daysWithMajority = 0;
     const subjects = {}; // { label: { present, total, teacher } }
+    const scheduleCache = new Map(); // cache per-date timetable version lookups
 
     Object.entries(attendance).forEach(([date, dayMap]) => {
       if (holidays.includes(date)) return;
       if (!dayMap || typeof dayMap !== 'object') return;
 
-      // Derive day from date
+      // Derive day from date, then resolve the correct timetable version for that date
       const dateObj = new Date(date + 'T12:00:00');
       const dayKey = dateObj.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
-      const dayLectures = timetable[dayKey] || [];
+      // Cache per-date schedule lookups to avoid redundant sorting on every attendance entry
+      if (!scheduleCache.has(date)) {
+        scheduleCache.set(date, getScheduleForDate(date, state));
+      }
+      const dayLectures = scheduleCache.get(date)[dayKey] || [];
 
       let dayTotal = 0;
       let dayPresent = 0;

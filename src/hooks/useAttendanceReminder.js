@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { lectureMatchesSelection } from '../utils/lectureMatching';
+import { lectureMatchesSelection, getScheduleForDate } from '../utils/lectureMatching';
+import { getLocalDateKey } from '../utils/dateUtils';
 
 /**
  * Attendance Reminder Hook
- * 
+ *
  * Checks for unmarked attendance when the app becomes visible/active.
  * Works entirely offline with no background execution required.
  */
@@ -15,7 +16,9 @@ export function useAttendanceReminder(state, updateState) {
   const [showReminder, setShowReminder] = useState(false);
   const hasRemindedThisSession = useRef(false);
 
-  const getLocalDateKey = () => new Date().toISOString().split('T')[0];
+  // Keep a ref to the latest state so the visibilitychange handler is never stale
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
 
   const getDayKey = (date = new Date()) => {
     return date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
@@ -36,7 +39,6 @@ export function useAttendanceReminder(state, updateState) {
 
     const startDate = parseTime(start);
     const endDate = parseTime(end);
-
     if (!startDate || !endDate) return null;
     return { start: startDate, end: endDate };
   };
@@ -46,49 +48,42 @@ export function useAttendanceReminder(state, updateState) {
   };
 
   const checkPendingAttendance = () => {
-    const todayKey = getLocalDateKey();
+    const currentState = stateRef.current; // always latest state — fixes stale closure bug
+    const todayKey = getLocalDateKey();    // local timezone — fixes UTC midnight bug
     const dayKey = getDayKey();
     const now = new Date();
-    const holidays = Array.isArray(state.holidays) ? state.holidays : [];
+    const holidays = Array.isArray(currentState.holidays) ? currentState.holidays : [];
 
-    // Don't remind on holidays
     if (holidays.includes(todayKey)) return [];
+    if (!currentState.attendanceReminder?.enabled) return [];
 
-    // Don't remind if feature is disabled
-    if (!state.attendanceReminder?.enabled) return [];
-
-    // Get today's lectures
-    const lectures = ((state.timetableSchedule && state.timetableSchedule[dayKey]) || [])
+    // Use versioned schedule so today's correct timetable is always used
+    const todaySchedule = getScheduleForDate(todayKey, currentState);
+    const lectures = ((todaySchedule && todaySchedule[dayKey]) || [])
       .map((lecture, originalIdx) => ({ ...lecture, _origIdx: originalIdx }))
-      .filter((lecture) => lectureMatchesSelection(lecture, state.selectedClass, state.selectedBatch, state.selectedPceBatch));
+      .filter((lecture) => lectureMatchesSelection(
+        lecture,
+        currentState.selectedClass,
+        currentState.selectedBatch,
+        currentState.selectedPceBatch,
+      ));
 
     if (lectures.length === 0) return [];
 
-    // Get today's attendance
-    const dayAttendance = state.attendance?.[todayKey] || {};
+    const dayAttendance = currentState.attendance?.[todayKey] || {};
 
-    // Check for lectures that have started (after grace period) but not marked
     const pending = lectures.filter(lecture => {
       const times = parseLectureTime(lecture.time);
       if (!times) return false;
-
-      // Lecture has started and grace period has passed
       const gracePeriodEnd = new Date(times.start.getTime() + GRACE_PERIOD_MINUTES * 60 * 1000);
       if (now >= gracePeriodEnd) {
-        // Attendance not marked
         const lectureKey = `${lecture.time}_${lecture.name}_${lecture._origIdx}`;
-        if (!dayAttendance[lectureKey]) {
-          return true;
-        }
+        if (!dayAttendance[lectureKey]) return true;
       }
-
       return false;
     }).map(lecture => {
       const times = parseLectureTime(lecture.time);
-      return {
-        ...lecture,
-        formattedTime: times ? formatTime(times.start) : ''
-      };
+      return { ...lecture, formattedTime: times ? formatTime(times.start) : '' };
     });
 
     return pending;
@@ -106,7 +101,6 @@ export function useAttendanceReminder(state, updateState) {
   };
 
   useEffect(() => {
-    // Check on mount
     const pending = checkPendingAttendance();
     if (pending.length > 0) {
       setPendingLectures(pending);
@@ -114,12 +108,8 @@ export function useAttendanceReminder(state, updateState) {
       hasRemindedThisSession.current = true;
     }
 
-    // Listen for visibility changes
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -133,11 +123,5 @@ export function useAttendanceReminder(state, updateState) {
     setPendingLectures([]);
   };
 
-  return {
-    showReminder,
-    pendingLectures,
-    dismissReminder,
-    goToDashboard,
-  };
+  return { showReminder, pendingLectures, dismissReminder, goToDashboard };
 }
-

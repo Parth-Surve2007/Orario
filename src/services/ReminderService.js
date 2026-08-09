@@ -31,7 +31,7 @@ function getTodaysLectures(state, date = new Date()) {
     const dayKey = getDayKey(date);
     const lectures = ((state.timetableSchedule && state.timetableSchedule[dayKey]) || [])
         .map((lecture, originalIdx) => ({ ...lecture, _origIdx: originalIdx }))
-        .filter((lecture) => lectureMatchesSelection(lecture, state.selectedClass, state.selectedBatch));
+        .filter((lecture) => lectureMatchesSelection(lecture, state.selectedClass, state.selectedBatch, state.selectedPceBatch));
 
     return { dayKey, lectures };
 }

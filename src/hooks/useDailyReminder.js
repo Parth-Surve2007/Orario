@@ -17,6 +17,7 @@ export function useDailyReminder(state) {
         state.dailyReminder?.time,
         state.selectedClass,
         state.selectedBatch,
+        state.selectedPceBatch,
         state.holidays,
     ]);
 }

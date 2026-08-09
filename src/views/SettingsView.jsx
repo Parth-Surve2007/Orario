@@ -64,6 +64,15 @@ export default function SettingsView() {
     if (!excelPreview || !pendingFile) return;
 
     try {
+      const todayKey = new Date().toISOString().split('T')[0];
+      const prevVersions = Array.isArray(state.timetableVersions) ? state.timetableVersions : [];
+      // If there's already a version for today, replace it; otherwise append
+      const versionsWithoutToday = prevVersions.filter(v => v.uploadedAt !== todayKey);
+      const newVersions = [
+        ...versionsWithoutToday,
+        { uploadedAt: todayKey, schedule: excelPreview.timetableSchedule }
+      ].sort((a, b) => a.uploadedAt.localeCompare(b.uploadedAt));
+
       updateState({
         sheetNames: excelPreview.sheetNames,
         selectedSheet: excelPreview.selectedSheet,
@@ -72,7 +81,8 @@ export default function SettingsView() {
         timetableSchedule: excelPreview.timetableSchedule,
         classes: excelPreview.classes,
         lastUploadedFile: excelPreview.fileName,
-        rawTimetable: excelPreview.rawTimetable
+        rawTimetable: excelPreview.rawTimetable,
+        timetableVersions: newVersions,
       });
 
       await saveExcelSheets(excelPreview.allSheetsJSON);
@@ -408,6 +418,21 @@ export default function SettingsView() {
               onChange={handleBatchChange}
             >
               <option value="">-- All Batches --</option>
+              <option value="B1">Batch 1 (B1)</option>
+              <option value="B2">Batch 2 (B2)</option>
+              <option value="B3">Batch 3 (B3)</option>
+            </select>
+          </div>
+
+          {/* PCE Batch Select */}
+          <div className="flex flex-col gap-2">
+            <label className="text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">PCE Batch (If Different)</label>
+            <select
+              className="voxel-input w-full"
+              value={state.selectedPceBatch || ''}
+              onChange={e => updateState({ selectedPceBatch: e.target.value })}
+            >
+              <option value="">-- Follow Main Batch --</option>
               <option value="B1">Batch 1 (B1)</option>
               <option value="B2">Batch 2 (B2)</option>
               <option value="B3">Batch 3 (B3)</option>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { lectureMatchesSelection } from '../utils/lectureMatching';
 
 /**
  * Attendance Reminder Hook
@@ -59,12 +60,7 @@ export function useAttendanceReminder(state, updateState) {
     // Get today's lectures
     const lectures = ((state.timetableSchedule && state.timetableSchedule[dayKey]) || [])
       .map((lecture, originalIdx) => ({ ...lecture, _origIdx: originalIdx }))
-      .filter((lecture) => {
-        if (!state.selectedClass) return false;
-        if (lecture.className && lecture.className !== state.selectedClass) return false;
-        if (state.selectedBatch && lecture.batch && lecture.batch !== state.selectedBatch) return false;
-        return true;
-      });
+      .filter((lecture) => lectureMatchesSelection(lecture, state.selectedClass, state.selectedBatch, state.selectedPceBatch));
 
     if (lectures.length === 0) return [];
 

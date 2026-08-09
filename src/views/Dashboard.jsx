@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { AppContext } from '../App';
 import { Hand, Upload, School, Donut, Check, X, Sun, CheckCheck, XSquare, CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react';
-import { lectureMatchesSelection } from '../utils/lectureMatching';
+import { lectureMatchesSelection, getScheduleForDate } from '../utils/lectureMatching';
 
 export default function Dashboard({ onNavigate }) {
     const { state, updateState } = useContext(AppContext);
@@ -79,11 +79,13 @@ export default function Dashboard({ onNavigate }) {
     const pctColor = pct >= 75 ? 'var(--color-secondary)' : 'var(--color-error)';
 
     // Today's lectures
+    // Resolve the correct timetable version for the viewed date
+    const scheduleForDate = getScheduleForDate(viewDate, state);
     // Keep full unfiltered list so original indices are stable for Stats lookups
-    const allDayLectures = (state.timetableSchedule && state.timetableSchedule[dayKey]) || [];
+    const allDayLectures = (scheduleForDate && scheduleForDate[dayKey]) || [];
     const lectures = allDayLectures
         .map((l, originalIdx) => ({ ...l, _origIdx: originalIdx }))
-        .filter(l => lectureMatchesSelection(l, state.selectedClass, state.selectedBatch));
+        .filter(l => lectureMatchesSelection(l, state.selectedClass, state.selectedBatch, state.selectedPceBatch));
 
     // ── Attendance helpers ────────────────────────────────────────────────────
     // Key uses ORIGINAL unfiltered index so Stats.jsx can look up dayLectures[index] correctly
@@ -283,7 +285,10 @@ export default function Dashboard({ onNavigate }) {
                                                 <span className="text-[10px] font-bold text-primary bg-primary-container/40 border border-primary px-1 rounded-sm uppercase tracking-wider">Review</span>
                                             )}
                                         </div>
-                                        <div className="text-body-md font-medium text-on-surface truncate">{l.name}</div>
+                                        <div className="text-body-md font-medium text-on-surface truncate">
+                                            {l.name}
+                                            {l.room && <span className="text-on-surface-variant text-label-sm ml-2 px-1 border border-outline rounded bg-surface-container">Rm: {l.room}</span>}
+                                        </div>
                                     </div>
 
                                     {/* P / A buttons */}

@@ -69,7 +69,7 @@ export default function Stats({ onNavigate }) {
     };
 
     const lectureMatches = (l) =>
-      lectureMatchesSelection(l, state.selectedClass, state.selectedBatch);
+      lectureMatchesSelection(l, state.selectedClass, state.selectedBatch, state.selectedPceBatch);
 
     let totalLectures = 0;
     let presentLectures = 0;

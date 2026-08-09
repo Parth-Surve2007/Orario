@@ -77,7 +77,7 @@ export default function Timetable({ onNavigate }) {
   }
 
   const lectures = (state.timetableSchedule[selectedDay] || [])
-    .filter((lecture) => lectureMatchesSelection(lecture, state.selectedClass, state.selectedBatch));
+    .filter((lecture) => lectureMatchesSelection(lecture, state.selectedClass, state.selectedBatch, state.selectedPceBatch));
 
   return (
     <div className="flex flex-col w-9/10 mx-auto gap-4 w-full">
@@ -149,7 +149,10 @@ export default function Timetable({ onNavigate }) {
                       {teacher && (
                         <div className="text-label-sm text-on-surface-variant font-medium mt-1 leading-4 whitespace-normal break-words">{teacher}</div>
                       )}
-                      <div className="text-label-sm text-secondary uppercase tracking-wider font-bold mt-1">{l.time}</div>
+                      <div className="text-label-sm text-secondary uppercase tracking-wider font-bold mt-1 flex items-center gap-2 flex-wrap">
+                        {l.time}
+                        {l.room && <span className="text-on-surface-variant bg-surface-container px-1 py-0.5 rounded border border-outline normal-case">Rm: {l.room}</span>}
+                      </div>
                     </div>
                   </motion.div>
                 );

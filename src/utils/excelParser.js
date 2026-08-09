@@ -305,6 +305,9 @@ function isBatchToken(s) {
   if (/^(DIV\s*[A-Z]|[A-Z]\s*DIV)$/i.test(u)) return true;
   if (/^A5[1-9]$/.test(u) || /^B41[1-9]$/.test(u)) return true;
   if (/^[1-9]$/.test(u)) return true;
+  const noSpace = u.replace(/\s+/g, '');
+  if (noSpace.includes('1TO34') || noSpace.includes('1TO35') || noSpace.includes('1-34') || noSpace.includes('1-35')) return true;
+  if (noSpace.includes('35ONWARDS') || noSpace.includes('36ONWARDS') || noSpace.includes('34ONWARDS')) return true;
   return false;
 }
 
@@ -319,6 +322,9 @@ function extractBatchString(s) {
   if (batchMatch) return batchMatch[1];
   const divMatch = u.match(/(?:DIV\s*([A-Z])|([A-Z])\s*DIV)/);
   if (divMatch) return divMatch[1] || divMatch[2];
+  const noSpace = u.replace(/\s+/g, '');
+  if (noSpace.includes('1TO34') || noSpace.includes('1TO35') || noSpace.includes('1-34') || noSpace.includes('1-35')) return 'B1';
+  if (noSpace.includes('35ONWARDS') || noSpace.includes('36ONWARDS') || noSpace.includes('34ONWARDS')) return 'B2';
   return u;
 }
 
@@ -351,31 +357,29 @@ function parseCellLectures(cellText, teacherMap) {
     }
   });
 
-  // ── 3-line: SUBJ / (CODE) / ROOM ──────────────────────────────────────────
-  if (lines.length === 3 && !lines[0].includes('/')) {
+  // ── N-line Block: SUBJ \n (CODE) \n ROOM \n BATCH ─────────────────────────
+  if (lines.length >= 2 && !lines[0].includes('/')) {
     const subj = cleanSubject(lines[0]);
-    const mid  = lines[1].replace(/[()[\]]/g, '').trim().toUpperCase();
-    const last = lines[2].replace(/[()[\]]/g, '').trim().toUpperCase();
-    
-    const isMidCodeOrRoom = (INIT_RE.test(mid) && !isRoomNumber(mid)) || isRoomNumber(mid) || isBatchToken(mid);
-    const isLastCodeOrRoom = (INIT_RE.test(last) && !isRoomNumber(last)) || isRoomNumber(last) || isBatchToken(last);
-    
-    if (isMidCodeOrRoom || isLastCodeOrRoom) {
-      const code = [mid, last].find(t => INIT_RE.test(t) && !isRoomNumber(t) && !isBatchToken(t)) || '';
-      const batchTok = [mid, last].find(t => isBatchToken(t)) || '';
-      if (subj && !isBreakContent(subj)) {
-        return [{ subject: subj, teacher: resolveTeacher(code, teacherMap), batch: extractBatchString(batchTok) }];
-      }
-    }
-  }
+    let code = '', batch = '', room = '';
 
-  // ── 2-line: SUBJ / (CODE) ─────────────────────────────────────────────────
-  if (lines.length === 2 && !lines[0].includes('/') && !lines[1].includes('/')) {
-    const subj = cleanSubject(lines[0]);
-    const code = lines[1].replace(/[()[\]]/g, '').trim().toUpperCase();
-    const batchTok = isBatchToken(code) ? extractBatchString(code) : '';
-    const teacher = resolveTeacher(INIT_RE.test(code) && !isBatchToken(code) ? code : '', teacherMap);
-    if (subj && !isBreakContent(subj)) return [{ subject: subj, teacher, batch: batchTok }];
+    for (let i = 1; i < lines.length; i++) {
+      const l = lines[i].replace(/[()[\]]/g, '').trim().toUpperCase();
+      if (!l) continue;
+      
+      // Identify tokens using existing helpers
+      if (!batch && isBatchToken(l)) { batch = extractBatchString(l); continue; }
+      if (!code && INIT_RE.test(l) && !isRoomNumber(l) && !isBatchToken(l)) { code = l; continue; }
+      if (!room && isRoomNumber(l)) { room = l; continue; }
+    }
+
+    if (subj && !isBreakContent(subj)) {
+      return [{ 
+        subject: subj, 
+        teacher: resolveTeacher(code, teacherMap), 
+        batch: batch || '',
+        room: room || ''
+      }];
+    }
   }
 
   // ── Multi-line or single slash/inline entries ──────────────────────────────
@@ -404,6 +408,7 @@ function parseInlineLecture(line, teacherMap) {
 
     let code = '';
     let batch = '';
+    let room = '';
 
     for (let i = 1; i < parts.length; i++) {
       const part = parts[i];
@@ -411,6 +416,11 @@ function parseInlineLecture(line, teacherMap) {
 
       if (!batch && isBatchToken(part)) {
         batch = extractBatchString(part);
+        continue;
+      }
+
+      if (!room && isRoomNumber(upper)) {
+        room = upper;
         continue;
       }
 
@@ -424,23 +434,28 @@ function parseInlineLecture(line, teacherMap) {
       subject,
       teacher: resolveTeacher(code, teacherMap),
       batch: batch || '',
+      room: room || '',
     };
   }
 
-  // ── Paren form: "SUBJ (CODE) ..." or square brackets "SUBJ [CODE] ..." ────
-  const bracketMatch = raw.match(/^(.+?)\s*[(\[]([\w\s-]+)[\)|\]]/);
+  // ── Paren form: "SUBJ (CODE) ROOM ..." or square brackets ────────────────
+  const bracketMatch = raw.match(/^(.+?)\s*[(\[]([\w\s-]+)[\)|\]](.*)/);
   if (bracketMatch) {
     const subject = cleanSubject(bracketMatch[1]);
     const code = bracketMatch[2].trim().toUpperCase();
+    const rest = bracketMatch[3] || '';
     if (!subject || isBreakContent(subject)) return null;
     const batchCandidate = isBatchToken(code) ? extractBatchString(code) : '';
     const teacherCandidate = INIT_RE.test(code) && !isBatchToken(code) ? resolveTeacher(code, teacherMap) : '';
-    return { subject, teacher: teacherCandidate, batch: batchCandidate };
+    // Try to find a room number in the remaining text after the bracket
+    const restTokens = rest.split(/[\s/,]+/).map(t => t.replace(/[()[\]]/g, '').trim()).filter(Boolean);
+    const roomToken = restTokens.find(t => isRoomNumber(t.toUpperCase()));
+    return { subject, teacher: teacherCandidate, batch: batchCandidate, room: roomToken ? roomToken.toUpperCase() : '' };
   }
 
   // ── Plain text ─────────────────────────────────────────────────────────────
   const subject = cleanSubject(raw);
-  if (subject && !isBreakContent(subject)) return { subject, teacher: '', batch: '' };
+  if (subject && !isBreakContent(subject)) return { subject, teacher: '', batch: '', room: '' };
   return null;
 }
 
@@ -547,7 +562,7 @@ function parseMasterTimetable(data, teacherMap, worksheet) {
         }
       }
 
-      parseCellLectures(cell, teacherMap).forEach(({ subject, teacher, batch }) => {
+      parseCellLectures(cell, teacherMap).forEach(({ subject, teacher, batch, room }) => {
         let displayName = subject;
         if (batch) {
           displayName = `${subject} (Batch ${batch})`;
@@ -561,6 +576,7 @@ function parseMasterTimetable(data, teacherMap, worksheet) {
           name: displayName,
           className,
           batch: batch || '',
+          room: room || '',
         });
       });
     });

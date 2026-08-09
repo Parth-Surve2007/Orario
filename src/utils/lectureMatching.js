@@ -33,14 +33,17 @@ export const getLectureBatches = (lectureName) => {
     return [...batches];
 };
 
-export const lectureMatchesSelection = (lecture, selectedClass, selectedBatch) => {
+export const lectureMatchesSelection = (lecture, selectedClass, selectedBatch, selectedPceBatch) => {
     if (!lecture) return false;
 
     const myClass = normalizeClassName(selectedClass);
     const lectureClass = normalizeClassName(lecture.className);
     if (lectureClass !== myClass) return false;
 
-    const batch = normalizeBatch(selectedBatch);
+    const isPce = String(lecture.subject || lecture.name || '').toUpperCase().includes('PCE');
+    const activeBatchToMatch = (isPce && selectedPceBatch) ? selectedPceBatch : selectedBatch;
+    
+    const batch = normalizeBatch(activeBatchToMatch);
     if (!batch) return true;
 
     if (lecture.batch) {
@@ -53,3 +56,40 @@ export const lectureMatchesSelection = (lecture, selectedClass, selectedBatch) =
     const lectureBatches = getLectureBatches(lecture.name);
     return lectureBatches.length === 0 || lectureBatches.includes(batch);
 };
+
+/**
+ * Given a date string (YYYY-MM-DD) and app state, returns the timetable
+ * schedule object { MONDAY: [...], TUESDAY: [...], ... } that was active
+ * on that date.
+ *
+ * Logic:
+ *  1. If no `timetableVersions` exist, fall back to `timetableSchedule` (backward compat).
+ *  2. Find the most recent version whose uploadedAt <= date.
+ *  3. If date is before ALL versions, use the oldest version (assume it was always in use).
+ */
+export const getScheduleForDate = (date, state) => {
+    const versions = state.timetableVersions;
+
+    // No versioning yet — use the single current schedule
+    if (!versions || versions.length === 0) {
+        return state.timetableSchedule || {};
+    }
+
+    // Sort versions oldest → newest (defensive; they should already be ordered)
+    const sorted = [...versions].sort((a, b) => a.uploadedAt.localeCompare(b.uploadedAt));
+
+    // Walk from newest to oldest, find last version uploaded on or before the date
+    let active = null;
+    for (let i = sorted.length - 1; i >= 0; i--) {
+        if (sorted[i].uploadedAt <= date) {
+            active = sorted[i];
+            break;
+        }
+    }
+
+    // Date is before all uploads — use oldest timetable
+    if (!active) active = sorted[0];
+
+    return active.schedule || {};
+};
+

@@ -170,7 +170,10 @@ export default function App() {
   }, [state, theme, colorTheme, isHydrated]);
 
   const updateState = (updates) => {
-    setState(prev => ({ ...prev, ...updates }));
+    setState(prev => {
+      const parsedUpdates = typeof updates === 'function' ? updates(prev) : updates;
+      return { ...prev, ...parsedUpdates };
+    });
   };
 
 

@@ -94,20 +94,44 @@ export default function Dashboard({ onNavigate }) {
 
     const setLectureStatus = (l, status) => {
         const key = getLectureKey(l);
-        const newDay = { ...dayAttendance, [key]: status };
-        updateState({ attendance: { ...attendance, [viewDate]: newDay } });
+        updateState(prev => {
+            const prevAttendance = prev.attendance || {};
+            const prevDay = prevAttendance[viewDate] || {};
+            return {
+                attendance: {
+                    ...prevAttendance,
+                    [viewDate]: { ...prevDay, [key]: status }
+                }
+            };
+        });
     };
 
     const markAllPresent = () => {
         const newDay = {};
         lectures.forEach(l => { newDay[getLectureKey(l)] = 'present'; });
-        updateState({ attendance: { ...attendance, [viewDate]: newDay } });
+        updateState(prev => {
+            const prevAttendance = prev.attendance || {};
+            return {
+                attendance: {
+                    ...prevAttendance,
+                    [viewDate]: { ...(prevAttendance[viewDate] || {}), ...newDay }
+                }
+            };
+        });
     };
 
     const markAllAbsent = () => {
         const newDay = {};
         lectures.forEach(l => { newDay[getLectureKey(l)] = 'absent'; });
-        updateState({ attendance: { ...attendance, [viewDate]: newDay } });
+        updateState(prev => {
+            const prevAttendance = prev.attendance || {};
+            return {
+                attendance: {
+                    ...prevAttendance,
+                    [viewDate]: { ...(prevAttendance[viewDate] || {}), ...newDay }
+                }
+            };
+        });
     };
 
     const toggleHoliday = () => {
